@@ -3,6 +3,12 @@ import { db } from '@/lib/db';
 import { comparePassword } from '@/lib/auth/bcrypt';
 import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt';
 
+// Force cette route à être dynamique - ÉVITE LE PRÉ-RENDU
+export const dynamic = 'force-dynamic';
+
+// Optionnel : Désactiver la mise en cache
+export const fetchCache = 'force-no-store';
+
 export async function POST(request) {
   try {
     const { email, password } = await request.json();
