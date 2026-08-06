@@ -1,0 +1,197 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+  CLUB_REP
+}
+
+enum Audience {
+  STUDENT
+  PARENT
+}
+
+enum PlanType {
+  STANDARD
+  PREMIUM
+}
+
+enum EnrollmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id              String             @id @default(uuid())
+  email           String             @unique
+  password        String
+  fullName        String
+  role            Role               @default(STUDENT)
+  audience        Audience           @default(STUDENT)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  enrollments     Enrollment[]
+  authoredCourses Course[]           @relation("InstructorCourses")
+  videoProgresses VideoProgress[]
+  bookings        ClubTableBooking[]
+  comments        Comment[]
+  feedbacks       Feedback[]
+}
+
+// Nouveau modèle : Catégorie dédiée
+model Category {
+  id        String   @id @default(uuid())
+  nameAr    String
+  nameEn    String
+  slug      String   @unique
+  courses   Course[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+
+model Chapter {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  titleAr   String
+  titleEn   String
+  order     Int
+  lessons   Lesson[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Lesson {
+  id               String          @id @default(uuid())
+  chapterId        String
+  chapter          Chapter         @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  titleAr          String
+  titleEn          String
+  videoUrl         String?
+  videoLibraryId   String?
+  writtenContentAr String?
+  writtenContentEn String?
+  order            Int
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  videoProgresses  VideoProgress[]
+}
+
+
+
+model VideoProgress {
+  id        String   @id @default(uuid())
+  userId     String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  progress  Float    @default(0.0)
+  completed Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+model ClubTableBooking {
+  id               String        @id @default(uuid())
+  clubNameAr       String
+  clubNameEn       String
+  representativeId String
+  representative   User          @relation(fields: [representativeId], references: [id], onDelete: Cascade)
+  tableNumber      Int
+  status           BookingStatus @default(PENDING)
+  eventDate        DateTime
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  content   String
+  rating    Int      @default(5)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+model Course {
+  id                 String       @id @default(uuid())
+  slug               String       @unique
+  titleAr            String
+  titleEn            String
+  descriptionAr      String
+  descriptionEn      String
+  whatYouWillLearnAr String?
+  whatYouWillLearnEn String?
+  imageUrl           String?
+  videoUrl           String?
+  instructorId       String
+  instructor         User         @relation("InstructorCourses", fields: [instructorId], references: [id])
+  categoryId         String?
+  category           Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  published          Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  chapters           Chapter[]
+  enrollments        Enrollment[]
+  comments           Comment[]
+  offers             Offer[]      // Nouvelle relation dynamique de plans d'abonnements [2]
+}
+
+// Nouveau modèle : Offres d'abonnement multiples [2]
+model Offer {
+  id             String       @id @default(uuid())
+  courseId       String
+  course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  nameAr         String
+  nameEn         String
+  durationMonths Int          @default(1) // Période en mois
+  price          Float
+  oldPrice       Float?       // Ancien prix (facultatif)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  enrollments    Enrollment[]
+}
+
+model Enrollment {
+  id         String           @id @default(uuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId   String
+  course     Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  offerId    String?          // Lié à l'offre choisie [2]
+  offer      Offer?           @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  planType   PlanType         @default(STANDARD) // Reste pour compatibilité
+  status     EnrollmentStatus @default(PENDING)
+  receiptUrl String?
+  expiresAt  DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([userId, courseId])
+}

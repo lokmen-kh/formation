@@ -1,0 +1,31 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "loading": "Loading...",
+    "back": "Back",
+    "required": "This field is required",
+    "success": "Success",
+    "error": "Error"
+  },
+  "nav": {
+    "home": "Home",
+    "courses": "Courses",
+    "myCourses": "My Courses",
+    "dashboard": "Dashboard",
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout"
+  },
+  "auth": {
+    "email": "Email Address",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "fullName": "Full Name",
+    "loginBtn": "Log In",
+    "registerBtn": "Sign Up",
+    "noAccount": "Don't have an account?",
+    "alreadyAccount": "Already have an account?"
+  }
+}

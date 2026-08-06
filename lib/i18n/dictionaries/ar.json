@@ -1,0 +1,31 @@
+{
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "submit": "إرسال",
+    "loading": "جاري التحميل...",
+    "back": "رجوع",
+    "required": "هذا الحقل مطلوب",
+    "success": "تم بنجاح",
+    "error": "حدث خطأ"
+  },
+  "nav": {
+    "home": "الرئيسية",
+    "courses": "الدورات",
+    "myCourses": "دوراتي",
+    "dashboard": "لوحة التحكم",
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "logout": "تسجيل الخروج"
+  },
+  "auth": {
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "fullName": "الاسم الكامل",
+    "loginBtn": "دخول",
+    "registerBtn": "تسجيل",
+    "noAccount": "ليس لديك حساب؟",
+    "alreadyAccount": "لديك حساب بالفعل؟"
+  }
+}
