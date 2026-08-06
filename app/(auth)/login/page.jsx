@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -171,10 +171,10 @@ function AuthShell({ title, subtitle, children, footer }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Page de Connexion Principale                                               */
+/* Composant interne qui utilise useSearchParams() - séparé pour Suspense     */
 /* -------------------------------------------------------------------------- */
 
-export default function LoginPage() {
+function LoginForm() {
   const { login, loading } = useAuth();
   const { language } = useLanguage();
   const router = useRouter();
@@ -185,7 +185,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   const isAr = language === 'ar';
-  const redirectPath = searchParams.get('redirect');
+  const redirectPath = searchParams.get("redirect");
 
   // Traducteur local infaillible [1]
   const localT = (en, ar) => (isAr ? ar : en);
@@ -215,21 +215,7 @@ export default function LoginPage() {
   };
 
   return (
-    <AuthShell
-      title={localT("Welcome back", "مرحباً بعودتك")}
-      subtitle={localT(
-        "Sign in to continue where you left off.",
-        "سجل الدخول لمتابعة مسيرتك التعليمية.",
-      )}
-      footer={
-        <>
-          {localT("No account yet?", "ليس لديك حساب بعد؟")}{" "}
-          <Link href="/register" className="font-bold text-blue-600 dark:text-blue-400 hover:underline transition-colors">
-            {localT("Create one", "أنشئ حساباً جديداً")}
-          </Link>
-        </>
-      }
-    >
+    <>
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 px-3 py-2.5 text-xs text-red-650 dark:text-red-400">
           {error}
@@ -286,6 +272,46 @@ export default function LoginPage() {
           <IconArrow className="w-4 h-4 rtl:rotate-180" />
         </Button>
       </form>
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Page de Connexion Principale - avec Suspense                               */
+/* -------------------------------------------------------------------------- */
+
+export default function LoginPage() {
+  const { language } = useLanguage();
+  const isAr = language === 'ar';
+  
+  const localT = (en, ar) => (isAr ? ar : en);
+
+  return (
+    <AuthShell
+      title={localT("Welcome back", "مرحباً بعودتك")}
+      subtitle={localT(
+        "Sign in to continue where you left off.",
+        "سجل الدخول لمتابعة مسيرتك التعليمية.",
+      )}
+      footer={
+        <>
+          {localT("No account yet?", "ليس لديك حساب بعد؟")}{" "}
+          <Link href="/register" className="font-bold text-blue-600 dark:text-blue-400 hover:underline transition-colors">
+            {localT("Create one", "أنشئ حساباً جديداً")}
+          </Link>
+        </>
+      }
+    >
+      {/* Wrap LoginForm in Suspense to handle useSearchParams */}
+      <Suspense fallback={
+        <div className="flex justify-center py-8">
+          <div className="animate-pulse text-gray-500 dark:text-gray-400">
+            {localT("Loading...", "جاري التحميل...")}
+          </div>
+        </div>
+      }>
+        <LoginForm />
+      </Suspense>
     </AuthShell>
   );
 }
