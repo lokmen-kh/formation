@@ -58,4 +58,5 @@ export async function POST(request) {
     console.error(error);
     return NextResponse.json({ error: 'Erreur interne.' }, { status: 500 });
   }
+  
 }
