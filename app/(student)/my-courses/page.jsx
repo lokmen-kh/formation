@@ -102,7 +102,7 @@ function ProgressBar({ value }) {
         className="h-1.5 w-full rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden"
       >
         <div
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-700 ease-out"
+          className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
           style={{ width: `${clamped}%` }}
         />
       </div>
@@ -146,12 +146,12 @@ export default function MyCoursesPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 space-y-8 opacity-0 animate-fade-in-up">
-        
+
         {/* Header with Stats */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white flex items-center gap-3">
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               {isAr ? 'مساحة التعلم الخاصة بي' : 'Mon Espace d\'Apprentissage'}
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
@@ -160,28 +160,28 @@ export default function MyCoursesPage() {
                 : `${formatNumber(approvedCount)} cours actifs sur ${formatNumber(totalCourses)}`}
             </p>
           </div>
-          
+
           <Link href="/courses">
-            <Button className="gap-2 text-xs font-bold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 rounded-xl px-5 py-2.5 transition-all duration-300 hover:scale-105">
+            <Button className="gap-2 text-xs font-bold bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/25 rounded-xl px-5 py-2.5 transition-all duration-300 hover:-translate-y-0.5">
               <IconBook className="w-4 h-4" />
               {isAr ? 'تصفح دورات أخرى' : 'Parcourir les cours'}
             </Button>
           </Link>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards — chaque métrique garde une identité propre via les tokens sémantiques du thème */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { icon: IconGraduationCap, value: formatNumber(totalCourses), label: isAr ? 'إجمالي الدورات' : 'Total Cours', color: 'from-blue-500 to-blue-600' },
-            { icon: IconTrendingUp, value: formatNumber(approvedCount), label: isAr ? 'الدورات النشطة' : 'Cours Actifs', color: 'from-emerald-500 to-emerald-600' },
-            { icon: IconClock2, value: `${completionRate}%`, label: isAr ? 'معدل الإكمال' : 'Taux d\'achèvement', color: 'from-purple-500 to-purple-600' },
-            { icon: IconUser, value: '1', label: isAr ? 'المتعلم' : 'Apprenant', color: 'from-orange-500 to-orange-600' },
+            { icon: IconGraduationCap, value: formatNumber(totalCourses), label: isAr ? 'إجمالي الدورات' : 'Total Cours', tone: 'bg-primary' },
+            { icon: IconTrendingUp, value: formatNumber(approvedCount), label: isAr ? 'الدورات النشطة' : 'Cours Actifs', tone: 'bg-success' },
+            { icon: IconClock2, value: `${completionRate}%`, label: isAr ? 'معدل الإكمال' : 'Taux d\'achèvement', tone: 'bg-accent' },
+            { icon: IconUser, value: '1', label: isAr ? 'المتعلم' : 'Apprenant', tone: 'bg-secondary' },
           ].map((stat, idx) => (
             <div
               key={idx}
               className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 shadow-sm p-5 hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
             >
-              <div className={`inline-flex w-10 h-10 rounded-xl bg-gradient-to-br ${stat.color} text-white items-center justify-center mb-3 shadow-lg`}>
+              <div className={`inline-flex w-10 h-10 rounded-xl ${stat.tone} text-white items-center justify-center mb-3 shadow-sm`}>
                 <stat.icon className="w-5 h-5" />
               </div>
               <div className="text-2xl font-black text-gray-900 dark:text-white">{stat.value}</div>
@@ -192,19 +192,19 @@ export default function MyCoursesPage() {
 
         {enrollments.length === 0 ? (
           <div className="bg-white dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800 p-12 text-center space-y-4">
-            <span className="inline-flex items-center justify-center size-16 rounded-full bg-gradient-to-br from-blue-500/10 to-purple-500/10 text-blue-500 mx-auto">
+            <span className="inline-flex items-center justify-center size-16 rounded-full bg-primary/10 text-primary mx-auto">
               <IconBook className="w-8 h-8" />
             </span>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               {isAr ? 'لم تقم بالاشتراك في أي دورة بعد' : 'Aucun cours inscrit'}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
-              {isAr 
-                ? 'ابدأ رحلة التعلم الخاصة بك اليوم واكتشف آلاف الدورات التدريبية' 
+              {isAr
+                ? 'ابدأ رحلة التعلم الخاصة بك اليوم واكتشف آلاف الدورات التدريبية'
                 : 'Commencez votre parcours d\'apprentissage dès aujourd\'hui et découvrez des milliers de cours'}
             </p>
             <Link href="/courses">
-              <Button className="gap-2 text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg shadow-blue-500/25 rounded-xl px-6 py-2.5">
+              <Button className="gap-2 text-sm bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/25 rounded-xl px-6 py-2.5">
                 <IconBook className="w-4 h-4" />
                 {isAr ? 'استكشاف الدورات' : 'Explorer les cours'}
               </Button>
@@ -223,9 +223,9 @@ export default function MyCoursesPage() {
               const progressValue = typeof progress === 'number' ? progress : 0;
 
               const statusMap = {
-                APPROVED: { label: isAr ? 'مفعل' : 'Actif', variant: 'success' },
-                PENDING: { label: isAr ? 'قيد المراجعة' : 'En attente', variant: 'warning' },
-                REJECTED: { label: isAr ? 'مرفوض' : 'Refusé', variant: 'error' },
+                APPROVED: { label: isAr ? 'مفعل' : 'Actif', tone: 'bg-success' },
+                PENDING: { label: isAr ? 'قيد المراجعة' : 'En attente', tone: 'bg-warning' },
+                REJECTED: { label: isAr ? 'مرفوض' : 'Refusé', tone: 'bg-error' },
               };
 
               const statusInfo = statusMap[status] || statusMap.PENDING;
@@ -240,23 +240,17 @@ export default function MyCoursesPage() {
                     {course.imageUrl ? (
                       <img src={course.imageUrl} alt={title} className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
-                      <div className="w-full h-44 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 flex items-center justify-center">
-                        <IconBook className="w-12 h-12 text-blue-400/40 dark:text-blue-500/30" />
+                      <div className="w-full h-44 bg-primary/5 dark:bg-primary/10 flex items-center justify-center">
+                        <IconBook className="w-12 h-12 text-primary/30" />
                       </div>
                     )}
                     <div className="absolute top-3 left-3 flex gap-1.5">
-                      <span className={`px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-wider ${
-                        statusInfo.variant === 'success' 
-                          ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                          : statusInfo.variant === 'warning'
-                          ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
-                          : 'bg-red-500 text-white shadow-lg shadow-red-500/30'
-                      }`}>
+                      <span className={`px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-wider text-white shadow-sm ${statusInfo.tone}`}>
                         {statusInfo.label}
                       </span>
                     </div>
                     <div className="absolute top-3 right-3">
-                      <span className="px-2.5 py-1 rounded-lg bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm text-[9px] font-extrabold text-gray-700 dark:text-gray-300 shadow-lg border border-gray-200/50 dark:border-gray-800/50">
+                      <span className="px-2.5 py-1 rounded-lg bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm text-[9px] font-extrabold text-gray-700 dark:text-gray-300 shadow-sm border border-gray-200/50 dark:border-gray-800/50">
                         {planType}
                       </span>
                     </div>
@@ -287,9 +281,9 @@ export default function MyCoursesPage() {
                     )}
 
                     {status === 'APPROVED' && isExpiringSoon && (
-                      <div className="mt-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-800/50 rounded-xl p-2.5 flex items-center gap-2">
-                        <IconAlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                        <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 leading-tight">
+                      <div className="mt-3 bg-warning/10 dark:bg-warning/15 border border-warning/25 rounded-xl p-2.5 flex items-center gap-2">
+                        <IconAlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
+                        <span className="text-[9px] font-bold text-warning-dark dark:text-warning leading-tight">
                           {isAr
                             ? 'ينتهي اشتراكك قريباً! جدد الآن.'
                             : 'Votre abonnement expire bientôt ! Renouvelez maintenant.'}
@@ -301,7 +295,7 @@ export default function MyCoursesPage() {
                   <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-950/20">
                     {status === 'APPROVED' ? (
                       <Link href={`/courses/${course.slug}`}>
-                        <Button variant="primary" className="w-full text-xs gap-2 font-bold rounded-xl py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 transition-all duration-300">
+                        <Button variant="primary" className="w-full text-xs gap-2 font-bold rounded-xl py-2.5 bg-primary hover:bg-primary/90 shadow-sm shadow-primary/25 transition-all duration-300">
                           {progressValue > 0
                             ? (isAr ? 'متابعة التعلم' : 'Continuer')
                             : (isAr ? 'ابدأ التعلم' : 'Commencer')}

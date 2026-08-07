@@ -1,317 +1,169 @@
-'use client';
+"use client";
 
-import { useState, Suspense } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Input } from '@/components/ui/Input';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
-import ThemeToggle from '@/components/ThemeToggle';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/label';
 import Link from 'next/link';
+import { Mail, Key, LogIn, GraduationCap, ShieldAlert, Loader2, ArrowLeft } from 'lucide-react';
 
-/* -------------------------------------------------------------------------- */
-/* Icônes Linéaires Vectorielles                                             */
-/* -------------------------------------------------------------------------- */
-
-function IconArrow(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M5 12h14" />
-      <path d="M12 5l7 7-7 7" />
-    </svg>
-  );
-}
-
-function IconCheck(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M20 6L9 17l-5-5" />
-    </svg>
-  );
-}
-
-function IconGraduationCap(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-      <path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5" />
-    </svg>
-  );
-}
-
-function IconShieldLock(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      <path d="M9 12l2 2 4-4" />
-    </svg>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Écrin Visuel d'Authentification (Design Unifié)                            */
-/* -------------------------------------------------------------------------- */
-
-function AuthShell({ title, subtitle, children, footer }) {
-  const { language, toggleLanguage } = useLanguage();
-  const isAr = language === 'ar';
-  const dir = isAr ? 'rtl' : 'ltr';
-
-  // Traducteur local infaillible pour résoudre le problème d'I18n [1]
-  const localT = (en, ar) => (isAr ? ar : en);
-
-  const perks = [
-    {
-      en: "Sequential lessons that unlock as you progress",
-      ar: "دروس متتالية تُفتح مع تقدمك الدراسي",
-    },
-    {
-      en: "Secure streaming, no downloads or leaks",
-      ar: "بث آمن ومشفر دون تنزيل أو تسريب",
-    },
-    {
-      en: "Local payment options and flexible access",
-      ar: "طرق دفع محلية مرنة ووصول كامل لدروسك",
-    },
-  ];
-
-  return (
-    <div dir={dir} lang={language} className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
-      <div className="grid min-h-screen lg:grid-cols-2">
-        {/* Colonne gauche — panneau solid primary-dark, sans dégradé */}
-        <div className="relative hidden flex-col justify-between bg-primary-dark p-10 text-white lg:flex">
-          {/* Grille quadrillée technique en arrière-plan */}
-          <div
-            className="absolute inset-0 opacity-10 pointer-events-none animate-drift-grid"
-            style={{
-              backgroundImage:
-                'linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)',
-              backgroundSize: '40px 48px',
-            }}
-          />
-
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary-light/20 blur-[120px] rounded-full pointer-events-none" />
-
-          <Link href="/" className="relative z-10 flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-              <IconGraduationCap className="size-5" />
-            </span>
-            <span className="font-display text-base font-extrabold tracking-tight">
-              {localT('EduPlus Platform', 'منصة التعليم بلس')}
-            </span>
-          </Link>
-
-          <div className="relative z-10 max-w-md space-y-6">
-            <h2 className="font-display text-[clamp(1.7rem,2.4vw,2.2rem)] font-extrabold leading-tight">
-              {localT(
-                "Learn with structure. Progress with proof.",
-                "تعلم بتنظيم بيداغوجي وتطوّر بخطوات ثابتة.",
-              )}
-            </h2>
-            <ul className="mt-8 space-y-4 text-xs text-white/95">
-              {perks.map((p) => (
-                <li key={p.en} className="flex items-start gap-3 leading-relaxed">
-                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-                    <IconCheck className="size-3 text-white" />
-                  </span>
-                  <span>{localT(p.en, p.ar)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <p className="relative z-10 flex items-center gap-2 text-xs text-white/75">
-            <IconShieldLock className="size-4 shrink-0" />
-            <span>{localT("Your data stays private and encrypted.", "جميع بياناتك محمية ومشفرة بالكامل.")}</span>
-          </p>
-        </div>
-
-        {/* Colonne droite - Formulaire de Connexion */}
-        <div className="flex flex-col px-6 py-8 sm:px-12 bg-white dark:bg-gray-950 transition-colors duration-300">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2.5 lg:invisible select-none">
-              <span className="bg-primary flex size-9 items-center justify-center rounded-xl text-white">
-                <IconGraduationCap className="size-5" />
-              </span>
-              <span className="font-display text-lg font-extrabold tracking-tight text-gray-900 dark:text-white">
-                {isAr ? 'منصة' : 'Edu'}
-                <span className="text-primary">{isAr ? ' التعليم بلس' : 'Plus'}</span>
-              </span>
-            </Link>
-
-            {/* Bascule bilingue et mode sombre */}
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={toggleLanguage}
-                className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 transition-all hover:border-primary/40 hover:text-primary cursor-pointer"
-              >
-                {language === "en" ? "العربية" : "English"}
-              </button>
-              <span className="text-gray-200 dark:text-gray-800 select-none text-xs">|</span>
-              <ThemeToggle />
-            </div>
-          </div>
-
-          {/* Formulaire interne */}
-          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10 opacity-0 animate-fade-in-up">
-            <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight">
-              {title}
-            </h1>
-            <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
-
-            <div className="mt-8">{children}</div>
-
-            {footer && <div className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">{footer}</div>}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Composant interne qui utilise useSearchParams() - séparé pour Suspense     */
-/* -------------------------------------------------------------------------- */
-
-function LoginForm() {
-  const { login, loading } = useAuth();
-  const { language } = useLanguage();
+export default function LoginPage() {
+  const { language, t } = useLanguage();
+  const { login, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const isAr = language === 'ar';
-  const redirectPath = searchParams.get("redirect");
-
-  // Traducteur local infaillible [1]
-  const localT = (en, ar) => (isAr ? ar : en);
+  const redirectPath = searchParams.get('redirect') || '';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    // Éviter les erreurs d'insensibilité à la casse sous PostgreSQL [11]
-    const sanitizedEmail = email.trim().toLowerCase();
+    try {
+      // Appel de la méthode d'authentification de votre hook
+      const result = await login(email, password);
 
-    const result = await login(sanitizedEmail, password);
+      // CORRECTION CLÉ : Résolution robuste et sécurisée du rôle utilisateur [5]
+      // Supporte toutes les variantes de retour de la fonction login (brut, enveloppé, ou état global)
+      const loggedUser = result?.user || (result?.role ? result : null) || user;
+      const userRole = loggedUser?.role?.toUpperCase();
 
-    if (result.success) {
       if (redirectPath) {
         router.push(redirectPath);
       } else {
-        if (result.user.role === 'ADMIN' || result.user.role === 'INSTRUCTOR') {
-          router.push('/dashboard');
+        // Aiguillage précis vers les vraies pages rôles de votre projet
+        if (userRole === 'ADMIN') {
+          router.push('/admin/enrollments'); // Route d'approbation d'administration
+        } else if (userRole === 'INSTRUCTOR') {
+          router.push('/instructor'); // Tableau de bord du professeur que nous avons créé
         } else {
-          router.push('/my-courses');
+          router.push('/my-courses'); // Espace étudiant standard
         }
       }
-    } else {
-      setError(result.error);
+    } catch (err) {
+      console.error('Login submit error:', err);
+      setError(isAr ? 'خطأ في البريد الإلكتروني أو كلمة المرور.' : 'Invalid email or password.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <>
-      {error && (
-        <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 px-3 py-2.5 text-xs text-red-600 dark:text-red-400">
-          {error}
-        </div>
-      )}
+    <div className={`min-h-screen bg-[#f8f9fb] dark:bg-gray-950 flex flex-col items-center justify-center p-6 ${isAr ? 'font-cairo' : 'font-sans'}`}>
+      
+      {/* Retour à l'accueil */}
+      <Link href="/" className="absolute top-6 start-6 flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-primary transition-colors select-none">
+        <ArrowLeft className={`w-4 h-4 ${isAr ? 'rotate-180' : ''}`} />
+        {isAr ? 'العودة للرئيسية' : 'Back to Home'}
+      </Link>
 
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="text-xs font-bold text-gray-700 dark:text-gray-300">
-            {localT("Email Address", "البريد الإلكتروني")}
-          </label>
-          <Input
-            id="email"
-            type="email"
-            required
-            placeholder="you@example.com"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            autoComplete="email"
-            className="w-full border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label htmlFor="password" className="text-xs font-bold text-gray-700 dark:text-gray-300">
-              {localT("Password", "كلمة المرور")}
-            </label>
-            <button type="button" className="text-[10px] font-bold text-primary hover:underline transition-colors cursor-pointer">
-              {localT("Forgot?", "نسيتها؟")}
-            </button>
+      <div className="w-full max-w-md space-y-6">
+        
+        {/* Logo d'authentification épuré */}
+        <div className="text-center space-y-2">
+          <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/25 mx-auto mb-2">
+            <GraduationCap className="size-6 text-white" />
           </div>
-          <Input
-            id="password"
-            type="password"
-            required
-            placeholder="••••••••"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            autoComplete="current-password"
-            className="w-full border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-          />
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+            {isAr ? 'تسجيل الدخول إلى حسابك' : 'Sign In to Your Account'}
+          </h2>
+          <p className="text-xs text-gray-450 dark:text-gray-500 font-bold">
+            {isAr ? 'منصة EduPlus لتمكين جيل البوصلة التعليمية' : 'EduPlus bilingual space for modern learning'}
+          </p>
         </div>
 
-        <Button
-          type="submit"
-          className="w-full gap-2 bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/25 hover:shadow-md transition-all duration-300 transform hover:scale-[1.01] text-xs py-2.5"
-          disabled={loading}
-        >
-          {loading
-            ? localT("Loading...", "جاري التحميل...")
-            : localT("Sign in", "تسجيل الدخول")
-          }
-          <IconArrow className="w-4 h-4 rtl:rotate-180" />
-        </Button>
-      </form>
-    </>
-  );
-}
+        {/* Boîte de Connexion Card */}
+        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-150/40 dark:border-gray-850/50 p-6 sm:p-8 shadow-xl shadow-slate-100/30 dark:shadow-none space-y-6">
+          
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 rounded-xl text-xs font-bold flex items-start gap-2 animate-fade-in">
+              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
-/* -------------------------------------------------------------------------- */
-/* Page de Connexion Principale - avec Suspense                               */
-/* -------------------------------------------------------------------------- */
+          <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* Champ Email */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">{isAr ? 'البريد الإلكتروني' : 'Email Address'}</Label>
+              <div className="relative">
+                <Mail className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input 
+                  type="email"
+                  required 
+                  value={email} 
+                  onChange={(e) => setEmail(e.target.value)} 
+                  placeholder="student@eduplus.dz"
+                  className="rounded-xl border-gray-200 ps-9 focus:border-primary/50 text-xs sm:text-sm font-semibold" 
+                />
+              </div>
+            </div>
 
-export default function LoginPage() {
-  const { language } = useLanguage();
-  const isAr = language === 'ar';
+            {/* Champ Mot de passe */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center">
+                <Label className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">{isAr ? 'كلمة المرور' : 'Password'}</Label>
+                <Link href="/forgot-password" className="text-[10px] font-black text-primary hover:underline">
+                  {isAr ? 'نسيت كلمة المرور؟' : 'Forgot?'}
+                </Link>
+              </div>
+              <div className="relative">
+                <Key className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input 
+                  type="password" 
+                  required 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  placeholder="••••••••"
+                  className="rounded-xl border-gray-200 ps-9 focus:border-primary/50 text-xs sm:text-sm" 
+                />
+              </div>
+            </div>
 
-  const localT = (en, ar) => (isAr ? ar : en);
+            {/* Bouton de soumission */}
+            <div className="pt-3">
+              <Button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-primary hover:bg-primary/95 text-white font-black py-3.5 rounded-2xl text-xs sm:text-sm tracking-wide shadow-lg shadow-primary/20 hover:-translate-y-0.5 transition-transform active:scale-95 cursor-pointer"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                    {isAr ? 'جاري التحقق...' : 'Signing In...'}
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <LogIn className="w-4.5 h-4.5 text-white" />
+                    {isAr ? 'تسجيل الدخول الآن' : 'Sign In Account'}
+                  </span>
+                )}
+              </Button>
+            </div>
 
-  return (
-    <AuthShell
-      title={localT("Welcome back", "مرحباً بعودتك")}
-      subtitle={localT(
-        "Sign in to continue where you left off.",
-        "سجل الدخول لمتابعة مسيرتك التعليمية.",
-      )}
-      footer={
-        <>
-          {localT("No account yet?", "ليس لديك حساب بعد؟")}{" "}
-          <Link href="/register" className="font-bold text-primary hover:underline transition-colors">
-            {localT("Create one", "أنشئ حساباً جديداً")}
-          </Link>
-        </>
-      }
-    >
-      {/* Wrap LoginForm in Suspense to handle useSearchParams */}
-      <Suspense fallback={
-        <div className="flex justify-center py-8">
-          <div className="animate-pulse text-gray-500 dark:text-gray-400">
-            {localT("Loading...", "جاري التحميل...")}
+          </form>
+
+          {/* Redirection d'inscription */}
+          <div className="text-center pt-2 border-t border-gray-100 dark:border-gray-800/80 text-xs">
+            <span className="text-gray-450 font-semibold">{isAr ? 'ليس لديك حساب بعد؟' : "Don't have an account?"} </span>
+            <Link href="/register" className="font-black text-primary hover:underline">
+              {isAr ? 'إنشاء حساب جديد مجاناً' : 'Sign Up Free'}
+            </Link>
           </div>
+
         </div>
-      }>
-        <LoginForm />
-      </Suspense>
-    </AuthShell>
+      </div>
+    </div>
   );
 }

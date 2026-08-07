@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import { 
-  UserPlus, Mail, Key, Trash2, ShieldAlert, User, Users,
+  UserPlus, Mail, Key, Trash2, ShieldAlert, Users, 
   GraduationCap, Calendar, Loader2, CheckCircle, Clock 
 } from 'lucide-react';
 

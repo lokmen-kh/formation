@@ -89,6 +89,15 @@ function IconX(props) {
     </svg>
   );
 }
+function IconDownload(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
 
 export default function WatchLessonPage() {
   const { slug: courseSlug, lessonId } = useParams();
@@ -101,6 +110,7 @@ export default function WatchLessonPage() {
   const [loading, setLoading] = useState(true);
   const [lockedError, setLockedError] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [downloadingDoc, setDownloadingDoc] = useState(false); // État de chargement pour le document [2]
 
   const isAr = language === 'ar';
 
@@ -156,6 +166,25 @@ export default function WatchLessonPage() {
     lessonId,
     onCompleted: handleCompletion
   });
+
+  // Récupérer un lien signé temporaire pour le téléchargement sécurisé du document [2]
+  const handleDownloadResource = async () => {
+    if (!activeLesson?.id) return;
+    setDownloadingDoc(true);
+    try {
+      const res = await fetch(`/api/student/document-token/${activeLesson.id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Accès verrouillé.');
+      
+      // Ouvrir le fichier de ressources privé pré-signé de B2 en toute sécurité dans un nouvel onglet
+      window.open(data.downloadUrl, '_blank');
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    } finally {
+      setDownloadingDoc(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -217,7 +246,7 @@ export default function WatchLessonPage() {
 
             {/* Lecteur ou Écran de Verrouillage */}
             {lockedError ? (
-              <div className="aspect-video w-full bg-slate-950 rounded-3xl flex flex-col items-center justify-center p-8 text-center space-y-5 shadow-xl border border-gray-150/40 dark:border-gray-850/40 relative overflow-hidden">
+              <div className="aspect-video w-full bg-slate-950 rounded-3xl flex flex-col items-center justify-center p-8 text-center space-y-5 shadow-xl border border-gray-150/40 dark:border-gray-855/40 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/5 rounded-full blur-[100px] pointer-events-none" />
                 <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 shrink-0">
                   <IconLock className="w-6 h-6" />
@@ -262,11 +291,11 @@ export default function WatchLessonPage() {
                   </h2>
                   <div className="flex items-center gap-2 mt-2.5 flex-wrap">
                     <Badge variant="primary" className="text-[10px] px-2.5 py-0.5">
-                      <IconClock className="w-3 h-3 mr-1 inline" />
+                      <IconClock className="w-3.5 h-3.5 mr-1.5 inline" />
                       {isAr ? 'درس' : 'Lesson'} {currentIndex + 1}/{allLessons.length}
                     </Badge>
                     <Badge variant="success" className="text-[10px] px-2.5 py-0.5">
-                      <IconCheckCircle className="w-3 h-3 mr-1 inline" />
+                      <IconCheckCircle className="w-3.5 h-3.5 mr-1.5 inline" />
                       {isAr ? 'مكتمل' : 'Completed'}
                     </Badge>
                   </div>
@@ -293,16 +322,32 @@ export default function WatchLessonPage() {
                 </div>
               </div>
 
-              {/* Notes du cours / Syllabus écrit */}
-              {(activeLesson?.writtenContentAr || activeLesson?.writtenContentEn) && (
+              {/* Notes Écrites & Téléchargement des Documents de Ressources SÉCURISÉ [2] */}
+              {(activeLesson?.writtenContentAr || activeLesson?.writtenContentEn || activeLesson?.documentUrl) && (
                 <div className="bg-white dark:bg-gray-900 p-6 lg:p-8 rounded-3xl border border-gray-150/40 dark:border-gray-850/40 shadow-sm space-y-4">
-                  <h3 className="font-black text-gray-955 dark:text-white border-b border-gray-100 dark:border-gray-800 pb-3 text-xs sm:text-sm flex items-center gap-2.5">
-                    <IconFileText className="w-4.5 h-4.5 text-primary" />
-                    {isAr ? 'الملخص المكتوب والملاحظات' : 'Written Notes & Materials'}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-gray-655 dark:text-gray-450 leading-relaxed whitespace-pre-line font-medium">
-                    {isAr ? activeLesson.writtenContentAr : activeLesson.writtenContentEn}
-                  </p>
+                  <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 flex-wrap gap-2">
+                    <h3 className="font-black text-gray-955 dark:text-white text-xs sm:text-sm flex items-center gap-2.5">
+                      <IconFileText className="w-4.5 h-4.5 text-primary" />
+                      {isAr ? 'الملخص المكتوب والملاحظات' : 'Written Notes & Materials'}
+                    </h3>
+                    
+                    {activeLesson?.documentUrl && (
+                      <button
+                        onClick={handleDownloadResource}
+                        disabled={downloadingDoc}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold bg-violet-500/10 text-violet-650 dark:text-violet-400 px-3.5 py-2 rounded-xl border border-violet-500/20 hover:bg-violet-500/20 cursor-pointer transition-all duration-300 hover:-translate-y-0.5"
+                      >
+                        <IconDownload className="h-4 w-4 shrink-0 animate-pulse" />
+                        {downloadingDoc ? (isAr ? 'جاري التحضير...' : 'Loading...') : (isAr ? 'تحميل ملف الملحق (PDF)' : 'Download Resource (PDF)')}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {(activeLesson?.writtenContentAr || activeLesson?.writtenContentEn) && (
+                    <p className="text-xs sm:text-sm text-gray-655 dark:text-gray-450 leading-relaxed whitespace-pre-line font-medium pt-1">
+                      {isAr ? activeLesson.writtenContentAr : activeLesson.writtenContentEn}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

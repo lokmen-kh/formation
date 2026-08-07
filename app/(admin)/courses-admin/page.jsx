@@ -16,9 +16,7 @@ import {
   BookOpen,
   Folder,
   User,
-  Calendar,
   DollarSign,
-  Globe,
   Type,
   Hash,
   FileText,
@@ -31,16 +29,78 @@ import {
   Eye,
   EyeOff,
   Upload,
-  UserCheck,
   ExternalLink,
   Sparkles,
   Tag,
   ChevronDown,
-  ChevronRight,
   Loader2,
   Grid,
   LayoutGrid,
+  X,
+  Eraser,
+  Calendar,
 } from 'lucide-react';
+
+/* -------------------------------------------------------------------------- */
+/* Tokens statiques pour les cartes de stats — Tailwind ne peut pas résoudre  */
+/* des classes construites dynamiquement (`bg-${color}-500`) : elles ne sont  */
+/* jamais générées au build. On mappe donc chaque stat à des classes fixes.   */
+/* -------------------------------------------------------------------------- */
+const STAT_TONES = {
+  primary: { bg: 'bg-primary/10', text: 'text-primary' },
+  success: { bg: 'bg-success/10', text: 'text-success' },
+  secondary: { bg: 'bg-secondary/10', text: 'text-secondary' },
+  accent: { bg: 'bg-accent/10', text: 'text-accent-dark' },
+};
+
+/* -------------------------------------------------------------------------- */
+/* Champs réutilisables — libellé discret au-dessus + style "ligne de filtre" */
+/* (icône, bordure nette, chevron) inspiré de la capture de référence.        */
+/* -------------------------------------------------------------------------- */
+
+function FieldLabel({ icon: Icon, children, required }) {
+  return (
+    <label className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+      {Icon && <Icon className="w-3 h-3 text-primary shrink-0" />}
+      {children} {required && <span className="text-error">*</span>}
+    </label>
+  );
+}
+
+function FieldSelect({ icon: Icon, value, onChange, required, placeholder, children }) {
+  return (
+    <div className="relative">
+      {Icon && <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />}
+      <select
+        value={value}
+        required={required}
+        onChange={onChange}
+        className={`w-full h-11 ${Icon ? 'pl-10' : 'pl-4'} pr-9 text-sm border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none transition-all duration-200 text-gray-900 dark:text-white cursor-pointer appearance-none`}
+      >
+        {placeholder && <option value="">{placeholder}</option>}
+        {children}
+      </select>
+      <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+    </div>
+  );
+}
+
+function SectionCard({ icon: Icon, title, subtitle, children }) {
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-950/30">
+        <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+          <Icon className="w-4 h-4" />
+        </div>
+        <div>
+          <h4 className="text-sm font-bold text-gray-900 dark:text-white">{title}</h4>
+          {subtitle && <p className="text-[11px] text-gray-400">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="p-6 space-y-4">{children}</div>
+    </div>
+  );
+}
 
 export default function AdminCoursesPage() {
   const { language } = useLanguage();
@@ -51,19 +111,10 @@ export default function AdminCoursesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
-  
-  // Form sections collapsible
-  const [sections, setSections] = useState({
-    basic: true,
-    description: true,
-    learning: true,
-    offers: true,
-    media: true,
-  });
 
   const [titleAr, setTitleAr] = useState('');
   const [titleEn, setTitleEn] = useState('');
@@ -78,16 +129,13 @@ export default function AdminCoursesPage() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [imageDragOver, setImageDragOver] = useState(false);
-  
+
   const [offers, setOffers] = useState([
     { nameAr: '', nameEn: '', durationMonths: 1, price: '', oldPrice: '' }
   ]);
+  const [expandedOfferIndex, setExpandedOfferIndex] = useState(0);
 
   const isAr = language === 'ar';
-
-  const toggleSection = (section) => {
-    setSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
 
   const parseResponseJson = async (res) => {
     try {
@@ -134,10 +182,12 @@ export default function AdminCoursesPage() {
 
   const addOfferField = () => {
     setOffers([...offers, { nameAr: '', nameEn: '', durationMonths: 1, price: '', oldPrice: '' }]);
+    setExpandedOfferIndex(offers.length);
   };
 
   const removeOfferField = (index) => {
     setOffers(offers.filter((_, i) => i !== index));
+    if (expandedOfferIndex === index) setExpandedOfferIndex(null);
   };
 
   const handleOfferChange = (index, field, value) => {
@@ -165,17 +215,13 @@ export default function AdminCoursesPage() {
 
       if (imageFile) formData.append('image', imageFile);
 
-      const url = editingCourse 
-        ? `/api/admin/courses/${editingCourse.id}` 
+      const url = editingCourse
+        ? `/api/admin/courses/${editingCourse.id}`
         : '/api/admin/courses';
-      
+
       const method = editingCourse ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        body: formData
-      });
-
+      const res = await fetch(url, { method, body: formData });
       const data = await parseResponseJson(res);
 
       if (res.ok) {
@@ -228,6 +274,7 @@ export default function AdminCoursesPage() {
     } else {
       setOffers([{ nameAr: '', nameEn: '', durationMonths: 1, price: '', oldPrice: '' }]);
     }
+    setExpandedOfferIndex(0);
     setIsModalOpen(true);
   };
 
@@ -236,6 +283,7 @@ export default function AdminCoursesPage() {
     setWhatYouWillLearnAr(''); setWhatYouWillLearnEn('');
     setInstructorId(''); setCategoryId(''); setImageFile(null); setPublished(false);
     setOffers([{ nameAr: '', nameEn: '', durationMonths: 1, price: '', oldPrice: '' }]);
+    setExpandedOfferIndex(0);
     setEditingCourse(null);
     setImagePreview('');
     setImageDragOver(false);
@@ -243,13 +291,13 @@ export default function AdminCoursesPage() {
 
   const filteredCourses = courses.filter(course => {
     const search = searchQuery.toLowerCase().trim();
-    const matchesSearch = !search || 
-      course.titleEn.toLowerCase().includes(search) || 
+    const matchesSearch = !search ||
+      course.titleEn.toLowerCase().includes(search) ||
       course.titleAr.includes(search) ||
       course.slug.toLowerCase().includes(search) ||
       course.instructor?.fullName?.toLowerCase().includes(search);
-    
-    const matchesStatus = filterStatus === 'all' || 
+
+    const matchesStatus = filterStatus === 'all' ||
       (filterStatus === 'published' && course.published) ||
       (filterStatus === 'draft' && !course.published);
 
@@ -259,52 +307,31 @@ export default function AdminCoursesPage() {
   const totalStudents = courses.reduce((acc, c) => acc + (c._count?.enrollments || 0), 0);
   const publishedCount = courses.filter(c => c.published).length;
 
-  const SectionHeader = ({ icon: Icon, title, section, isOpen }) => (
-    <button
-      type="button"
-      onClick={() => toggleSection(section)}
-      className="w-full flex items-center justify-between p-4 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-xl border border-blue-200/50 dark:border-blue-800/50 hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-200 group shadow-sm"
-    >
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-          <Icon className="w-4 h-4" />
-        </div>
-        <span className="text-sm font-bold text-gray-900 dark:text-white">{title}</span>
-        <Badge variant="secondary" className="text-[9px] bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400">
-          {isOpen ? '▼' : '▶'}
-        </Badge>
-      </div>
-      <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
-    </button>
-  );
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100/30 to-purple-50 dark:from-gray-950 dark:via-blue-950/20 dark:to-gray-950 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#f8f9fb] dark:bg-gray-950 p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header with Blue Gradient */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-500 p-8 border border-blue-400/20 shadow-2xl shadow-blue-500/30">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-3xl animate-pulse delay-1000" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/5 rounded-full blur-3xl" />
-          
+        {/* Header — solid primary-dark, sans dégradé */}
+        <div className="relative overflow-hidden rounded-3xl bg-primary-dark p-8 border border-white/10 shadow-2xl shadow-slate-900/10">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+
           <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-white/20 backdrop-blur-sm shadow-lg shadow-white/10">
+              <div className="p-3 rounded-xl bg-white/10 backdrop-blur-sm shadow-md">
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-sm">
                   {isAr ? 'إدارة المناهج والمساقات' : 'Course Management'}
                 </h1>
-                <p className="text-sm text-blue-100 flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-white/70" />
+                <p className="text-sm text-white/70 flex items-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-white/60" />
                   {isAr ? 'إدارة المساقات التعليمية والمحتوى' : 'Manage your educational courses and content'}
                 </p>
               </div>
             </div>
-            <Button 
-              onClick={() => { resetForm(); setIsModalOpen(true); }} 
-              className="gap-2 bg-white text-blue-600 hover:bg-blue-50 shadow-lg shadow-white/25 hover:shadow-white/40 transition-all duration-300 hover:scale-105 group font-bold rounded-xl px-6 py-3"
+            <Button
+              onClick={() => { resetForm(); setIsModalOpen(true); }}
+              className="gap-2 bg-white text-primary hover:bg-white/90 shadow-lg transition-all duration-300 hover:-translate-y-0.5 group font-bold rounded-xl px-6 py-3"
             >
               <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
               {isAr ? 'إضافة مساق جديد' : 'Add Course'}
@@ -312,33 +339,36 @@ export default function AdminCoursesPage() {
           </div>
         </div>
 
-        {/* Stats Cards with Glassmorphism */}
+        {/* Stats Cards — classes statiques (voir STAT_TONES) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { icon: BookOpen, label: isAr ? 'إجمالي المساقات' : 'Total Courses', value: courses.length, color: 'blue' },
-            { icon: CheckCircle, label: isAr ? 'منشورة' : 'Published', value: publishedCount, color: 'emerald' },
-            { icon: Users, label: isAr ? 'طلاب مسجلين' : 'Enrolled Students', value: totalStudents, color: 'purple' },
-            { icon: TrendingUp, label: isAr ? 'تصنيفات' : 'Categories', value: categories.length, color: 'amber' },
-          ].map((stat, index) => (
-            <div 
-              key={index}
-              className="group bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-6 rounded-2xl border border-white/30 dark:border-gray-800/50 shadow-lg hover:shadow-xl hover:border-blue-400/50 transition-all duration-300 hover:-translate-y-1"
-            >
-              <div className="flex items-center gap-4">
-                <div className={`p-3 rounded-xl bg-${stat.color}-500/20 group-hover:scale-110 transition-transform duration-300`}>
-                  <stat.icon className={`w-5 h-5 text-${stat.color}-600 dark:text-${stat.color}-400`} />
-                </div>
-                <div>
-                  <p className="text-2xl font-black text-gray-900 dark:text-white">{stat.value}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">{stat.label}</p>
+            { icon: BookOpen, label: isAr ? 'إجمالي المساقات' : 'Total Courses', value: courses.length, tone: 'primary' },
+            { icon: CheckCircle, label: isAr ? 'منشورة' : 'Published', value: publishedCount, tone: 'success' },
+            { icon: Users, label: isAr ? 'طلاب مسجلين' : 'Enrolled Students', value: totalStudents, tone: 'secondary' },
+            { icon: TrendingUp, label: isAr ? 'تصنيفات' : 'Categories', value: categories.length, tone: 'accent' },
+          ].map((stat, index) => {
+            const colors = STAT_TONES[stat.tone];
+            return (
+              <div
+                key={index}
+                className="group bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 shadow-elegant hover:shadow-lg hover:border-primary/30 transition-all duration-300 hover:-translate-y-1"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-xl ${colors.bg} group-hover:scale-110 transition-transform duration-300`}>
+                    <stat.icon className={`w-5 h-5 ${colors.text}`} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-gray-900 dark:text-white">{stat.value}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">{stat.label}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Search and Filter with Glassmorphism */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-4 rounded-2xl border border-white/30 dark:border-gray-800/50 shadow-lg">
+        {/* Search and Filter */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 shadow-elegant">
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -346,29 +376,29 @@ export default function AdminCoursesPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={isAr ? 'ابحث عن مساق...' : 'Search courses...'}
-              className="w-full text-sm bg-white/50 dark:bg-gray-950/50 border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-900 rounded-xl py-2.5 pl-10 pr-4 outline-none transition-all duration-200 text-gray-900 dark:text-white placeholder:text-gray-400"
+              className="w-full text-sm bg-gray-50 dark:bg-gray-950/50 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:bg-white dark:focus:bg-gray-900 rounded-xl py-2.5 pl-10 pr-4 outline-none transition-all duration-200 text-gray-900 dark:text-white placeholder:text-gray-400"
             />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="text-sm bg-white/50 dark:bg-gray-950/50 border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl px-3 py-2.5 outline-none transition-all duration-200 text-gray-900 dark:text-white cursor-pointer"
+              className="text-sm bg-gray-50 dark:bg-gray-950/50 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-xl px-3 py-2.5 outline-none transition-all duration-200 text-gray-900 dark:text-white cursor-pointer"
             >
               <option value="all">{isAr ? 'الكل' : 'All'}</option>
               <option value="published">{isAr ? 'منشور' : 'Published'}</option>
               <option value="draft">{isAr ? 'مسودة' : 'Draft'}</option>
             </select>
-            <div className="flex gap-1 p-1 bg-white/50 dark:bg-gray-950/50 rounded-xl border border-gray-200/50 dark:border-gray-800/50">
+            <div className="flex gap-1 p-1 bg-gray-50 dark:bg-gray-950/50 rounded-xl border border-gray-200 dark:border-gray-800">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all duration-200 ${viewMode === 'grid' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                className={`p-2 rounded-lg transition-all duration-200 ${viewMode === 'grid' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
               >
                 <Grid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all duration-200 ${viewMode === 'list' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                className={`p-2 rounded-lg transition-all duration-200 ${viewMode === 'list' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
@@ -378,16 +408,16 @@ export default function AdminCoursesPage() {
 
         {/* Grid/List View */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-3xl border border-white/30 dark:border-gray-800/50 shadow-lg">
-            <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-900/50 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin" />
+          <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/60 dark:border-gray-800/60 shadow-elegant">
+            <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
               {isAr ? 'جاري تحميل المساقات...' : 'Loading courses...'}
             </p>
           </div>
         ) : filteredCourses.length === 0 ? (
-          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-3xl border-2 border-dashed border-gray-200/50 dark:border-gray-800/50 p-16 text-center shadow-lg">
-            <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4">
-              <BookOpen className="w-8 h-8 text-blue-500" />
+          <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800 p-16 text-center shadow-elegant">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <BookOpen className="w-8 h-8 text-primary" />
             </div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               {isAr ? 'لا توجد مساقات' : 'No Courses Found'}
@@ -399,29 +429,29 @@ export default function AdminCoursesPage() {
         ) : (
           <div className={`grid ${viewMode === 'grid' ? 'grid-cols-1 lg:grid-cols-2 gap-6' : 'grid-cols-1 gap-4'}`}>
             {filteredCourses.map(course => (
-              <div 
-                key={course.id} 
-                className={`group bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-6 rounded-2xl border border-white/30 dark:border-gray-800/50 shadow-lg hover:shadow-xl hover:border-blue-400/50 transition-all duration-300 hover:-translate-y-1 overflow-hidden ${
+              <div
+                key={course.id}
+                className={`group bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 shadow-elegant hover:shadow-lg hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 overflow-hidden ${
                   viewMode === 'list' ? 'flex flex-col sm:flex-row gap-6' : ''
                 }`}
               >
                 {viewMode === 'list' && (
-                  <div className="w-full sm:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-blue-500/20 to-purple-500/20">
+                  <div className="w-full sm:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-primary/10">
                     {course.imageUrl ? (
                       <img src={course.imageUrl} alt={course.titleEn} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <BookOpen className="w-8 h-8 text-blue-400/50" />
+                        <BookOpen className="w-8 h-8 text-primary/40" />
                       </div>
                     )}
                   </div>
                 )}
-                
+
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start">
                     <div className="flex-1 min-w-0">
                       <Link href={`/courses-admin/${course.slug}/manage`}>
-                        <h3 className="font-bold text-gray-900 dark:text-white text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer leading-snug flex items-center gap-2">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm hover:text-primary transition-colors cursor-pointer leading-snug flex items-center gap-2">
                           {isAr ? course.titleAr : course.titleEn}
                           <ExternalLink className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </h3>
@@ -432,30 +462,30 @@ export default function AdminCoursesPage() {
                           {course.published ? (isAr ? 'منشور' : 'Published') : (isAr ? 'مسودة' : 'Draft')}
                         </Badge>
                         {course.category && (
-                          <Badge variant="outline" className="gap-1.5 px-3 py-1 border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400">
+                          <Badge variant="outline" className="gap-1.5 px-3 py-1 border-primary/20 text-primary">
                             <Folder className="w-3 h-3" />
                             {isAr ? course.category.nameAr : course.category.nameEn}
                           </Badge>
                         )}
                         {course.offers && course.offers.length > 0 && (
-                          <Badge variant="primary" className="gap-1.5 px-3 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                          <Badge variant="primary" className="gap-1.5 px-3 py-1 bg-primary/10 text-primary">
                             <Tag className="w-3 h-3" />
                             {course.offers.length} {isAr ? 'عروض' : 'Offers'}
                           </Badge>
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-1 ml-2 flex-shrink-0">
-                      <button 
-                        onClick={() => handleEditCourse(course)} 
-                        className="p-1.5 rounded-lg hover:bg-blue-500/10 text-gray-400 hover:text-blue-600 transition-all duration-200 cursor-pointer"
+                      <button
+                        onClick={() => handleEditCourse(course)}
+                        className="p-1.5 rounded-lg hover:bg-primary/10 text-gray-400 hover:text-primary transition-all duration-200 cursor-pointer"
                       >
                         <Edit className="w-3.5 h-3.5" />
                       </button>
-                      <button 
-                        onClick={() => handleDeleteCourse(course.id)} 
-                        className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-600 transition-all duration-200 cursor-pointer"
+                      <button
+                        onClick={() => handleDeleteCourse(course.id)}
+                        className="p-1.5 rounded-lg hover:bg-error/10 text-gray-400 hover:text-error transition-all duration-200 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -478,12 +508,12 @@ export default function AdminCoursesPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="flex items-center gap-1 font-bold text-blue-600 dark:text-blue-400">
+                      <span className="flex items-center gap-1 font-bold text-primary">
                         <DollarSign className="w-3 h-3" />
                         {course.offers?.[0] ? course.offers[0].price : 0} DZD
                       </span>
                       <span className="inline-flex items-center gap-1 font-bold text-gray-700 dark:text-gray-300">
-                        <Users className="w-3.5 h-3.5 text-blue-500" />
+                        <Users className="w-3.5 h-3.5 text-primary" />
                         {course._count?.enrollments || 0}
                       </span>
                     </div>
@@ -494,391 +524,389 @@ export default function AdminCoursesPage() {
           </div>
         )}
 
-        {/* Modern Modal Form with Blue Background */}
-        <Modal 
-          isOpen={isModalOpen} 
-          onClose={() => { setIsModalOpen(false); resetForm(); }} 
-          className="max-w-4xl"
+        {/* ==================================================================== */}
+        {/* MODAL — Formulaire en 3 parties fixes, style "ligne de filtre"       */}
+        {/* ==================================================================== */}
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); resetForm(); }}
+          className="max-w-3xl"
           title={
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20">
-                {editingCourse ? <Edit className="w-5 h-5 text-blue-600" /> : <Plus className="w-5 h-5 text-blue-600" />}
+            <div className="flex items-center justify-between w-full gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  {editingCourse ? <Edit className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                    {editingCourse ? (isAr ? 'تعديل المساق' : 'Edit Course') : (isAr ? 'إنشاء مساق جديد' : 'Create Course')}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {isAr ? 'املأ جميع الحقول المطلوبة' : 'Fill in all required fields'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                  {editingCourse ? (isAr ? 'تعديل المساق' : 'Edit Course') : (isAr ? 'إنشاء مساق جديد' : 'Create Course')}
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {isAr ? 'املأ جميع الحقول المطلوبة' : 'Fill in all required fields'}
-                </p>
-              </div>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-primary transition-colors shrink-0"
+              >
+                <Eraser className="w-3.5 h-3.5" />
+                {isAr ? 'إعادة تعيين' : 'Clear'}
+              </button>
             </div>
           }
         >
-          <form onSubmit={handleCreateSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto px-1 py-2 bg-gradient-to-b from-blue-50/50 to-purple-50/50 dark:from-gray-950 dark:to-blue-950/20 rounded-2xl p-4">
-            
-            {/* Section 1: Basic Information */}
-            <div className="space-y-3">
-              <SectionHeader icon={Type} title={isAr ? 'المعلومات الأساسية' : 'Basic Information'} section="basic" isOpen={sections.basic} />
-              
-              {sections.basic && (
-                <div className="p-6 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm rounded-xl border border-blue-200/50 dark:border-blue-800/50 space-y-4 animate-fade-in shadow-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        <span className="flex items-center gap-1.5">
-                          <Type className="w-3.5 h-3.5 text-blue-500" />
-                          {isAr ? 'العنوان بالعربية' : 'Title (Arabic)'} <span className="text-red-500">*</span>
-                        </span>
-                      </label>
-                      <Input 
-                        required 
-                        value={titleAr} 
-                        onChange={e => setTitleAr(e.target.value)} 
-                        className="w-full bg-white dark:bg-gray-950 border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl py-3 px-4 text-sm" 
-                        placeholder={isAr ? 'أدخل عنوان المساق بالعربية' : 'Enter course title in Arabic'}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        <span className="flex items-center gap-1.5">
-                          <Type className="w-3.5 h-3.5 text-blue-500" />
-                          {isAr ? 'العنوان بالإنجليزية' : 'Title (English)'} <span className="text-red-500">*</span>
-                        </span>
-                      </label>
-                      <Input 
-                        required 
-                        value={titleEn} 
-                        onChange={e => setTitleEn(e.target.value)} 
-                        className="w-full bg-white dark:bg-gray-950 border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl py-3 px-4 text-sm" 
-                        placeholder={isAr ? 'أدخل عنوان المساق بالإنجليزية' : 'Enter course title in English'}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      <span className="flex items-center gap-1.5">
-                        <Hash className="w-3.5 h-3.5 text-blue-500" />
-                        {isAr ? 'الرابط المختصر (Slug)' : 'Slug (URL identifier)'} <span className="text-red-500">*</span>
-                      </span>
-                    </label>
-                    <Input 
-                      required 
-                      value={slug} 
-                      onChange={e => setSlug(e.target.value)} 
-                      placeholder="ex: introduction-to-programming" 
-                      className="w-full bg-white dark:bg-gray-950 border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl py-3 px-4 text-sm font-mono" 
-                    />
-                    <p className="text-[10px] text-gray-400 mt-1.5">
-                      {isAr ? 'يستخدم في رابط المساق (URL)' : 'Used in the course URL'}
-                    </p>
-                  </div>
+          <form onSubmit={handleCreateSubmit} className="space-y-5 max-h-[75vh] overflow-y-auto px-1 py-2">
+
+            {/* ---------------------------------------------------------- */}
+            {/* PARTIE 1 — Informations générales                          */}
+            {/* ---------------------------------------------------------- */}
+            <SectionCard
+              icon={Type}
+              title={isAr ? '١. المعلومات العامة' : '1. General Information'}
+              subtitle={isAr ? 'العنوان، الرابط، التصنيف والمدرب' : 'Title, URL, category and instructor'}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel icon={Type} required>{isAr ? 'العنوان (عربي)' : 'Title (Arabic)'}</FieldLabel>
+                  <Input
+                    required
+                    value={titleAr}
+                    onChange={e => setTitleAr(e.target.value)}
+                    placeholder={isAr ? 'مثال: أساسيات البرمجة' : 'e.g. Introduction to Programming'}
+                    className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
+                    dir="rtl"
+                  />
                 </div>
-              )}
-            </div>
-
-            {/* Section 2: Description */}
-            <div className="space-y-3">
-              <SectionHeader icon={FileText} title={isAr ? 'الوصف' : 'Description'} section="description" isOpen={sections.description} />
-              
-              {sections.description && (
-                <div className="p-6 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm rounded-xl border border-blue-200/50 dark:border-blue-800/50 space-y-4 animate-fade-in shadow-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        {isAr ? 'الوصف بالعربية' : 'Description (Arabic)'} <span className="text-red-500">*</span>
-                      </label>
-                      <textarea 
-                        required 
-                        value={descriptionAr} 
-                        onChange={e => setDescriptionAr(e.target.value)} 
-                        className="w-full p-4 border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm" 
-                        rows={4}
-                        placeholder={isAr ? 'أدخل وصف المساق بالعربية' : 'Enter course description in Arabic'}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        {isAr ? 'الوصف بالإنجليزية' : 'Description (English)'} <span className="text-red-500">*</span>
-                      </label>
-                      <textarea 
-                        required 
-                        value={descriptionEn} 
-                        onChange={e => setDescriptionEn(e.target.value)} 
-                        className="w-full p-4 border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm" 
-                        rows={4}
-                        placeholder={isAr ? 'أدخل وصف المساق بالإنجليزية' : 'Enter course description in English'}
-                      />
-                    </div>
-                  </div>
+                <div>
+                  <FieldLabel icon={Type} required>{isAr ? 'العنوان (إنجليزي)' : 'Title (English)'}</FieldLabel>
+                  <Input
+                    required
+                    value={titleEn}
+                    onChange={e => setTitleEn(e.target.value)}
+                    placeholder="e.g. Introduction to Programming"
+                    className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
+                  />
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Section 3: What You'll Learn */}
-            <div className="space-y-3">
-              <SectionHeader icon={ListChecks} title={isAr ? 'ماذا ستتعلم' : 'What You\'ll Learn'} section="learning" isOpen={sections.learning} />
-              
-              {sections.learning && (
-                <div className="p-6 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm rounded-xl border border-blue-200/50 dark:border-blue-800/50 space-y-4 animate-fade-in shadow-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        {isAr ? 'ماذا ستتعلم (عربي)' : 'What You\'ll Learn (Arabic)'} <span className="text-red-500">*</span>
-                      </label>
-                      <textarea 
-                        required 
-                        value={whatYouWillLearnAr} 
-                        onChange={e => setWhatYouWillLearnAr(e.target.value)} 
-                        className="w-full p-4 border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm" 
-                        rows={4}
-                        placeholder={isAr ? 'أدخل ما سيتعلمه الطالب بالعربية' : 'Enter what students will learn in Arabic'}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        {isAr ? 'ماذا ستتعلم (إنجليزي)' : 'What You\'ll Learn (English)'} <span className="text-red-500">*</span>
-                      </label>
-                      <textarea 
-                        required 
-                        value={whatYouWillLearnEn} 
-                        onChange={e => setWhatYouWillLearnEn(e.target.value)} 
-                        className="w-full p-4 border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm" 
-                        rows={4}
-                        placeholder={isAr ? 'أدخل ما سيتعلمه الطالب بالإنجليزية' : 'Enter what students will learn in English'}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+              <div>
+                <FieldLabel icon={Hash} required>{isAr ? 'الرابط المختصر (Slug)' : 'Slug (URL identifier)'}</FieldLabel>
+                <Input
+                  required
+                  value={slug}
+                  onChange={e => setSlug(e.target.value)}
+                  placeholder="introduction-to-programming"
+                  className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm font-mono"
+                />
+                <p className="text-[10px] text-gray-400 mt-1.5">
+                  {isAr ? 'يُستخدم في رابط المساق: /courses/your-slug' : 'Used in the course URL: /courses/your-slug'}
+                </p>
+              </div>
 
-            {/* Section 4: Subscription Offers */}
-            <div className="space-y-3">
-              <SectionHeader icon={DollarSign} title={isAr ? 'عروض الاشتراك' : 'Subscription Offers'} section="offers" isOpen={sections.offers} />
-              
-              {sections.offers && (
-                <div className="p-6 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm rounded-xl border border-blue-200/50 dark:border-blue-800/50 space-y-4 animate-fade-in shadow-lg">
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {isAr ? 'أضف عروض وباقات اشتراك للمساق' : 'Add subscription plans and offers'}
-                    </p>
-                    <Button 
-                      type="button" 
-                      onClick={addOfferField} 
-                      size="sm" 
-                      variant="outline" 
-                      className="gap-2 text-xs font-bold border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10 rounded-xl px-4 py-2"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      {isAr ? 'إضافة عرض' : 'Add Offer'}
-                    </Button>
-                  </div>
-
-                  <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
-                    {offers.map((offer, index) => (
-                      <div 
-                        key={index} 
-                        className="relative p-4 bg-white/70 dark:bg-gray-950/70 rounded-xl border border-blue-200/50 dark:border-blue-800/50 hover:border-blue-400 dark:hover:border-blue-600 transition-all duration-200"
-                      >
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
-                          <Input 
-                            label={isAr ? 'الاسم (عربي)' : 'Name (Ar)'} 
-                            required 
-                            value={offer.nameAr} 
-                            onChange={e => handleOfferChange(index, 'nameAr', e.target.value)} 
-                            className="bg-white dark:bg-gray-950"
-                          />
-                          <Input 
-                            label={isAr ? 'الاسم (En)' : 'Name (En)'} 
-                            required 
-                            value={offer.nameEn} 
-                            onChange={e => handleOfferChange(index, 'nameEn', e.target.value)} 
-                            className="bg-white dark:bg-gray-950"
-                          />
-                          <Input 
-                            label={isAr ? 'المدة (شهور)' : 'Months'} 
-                            type="number" 
-                            required 
-                            value={offer.durationMonths} 
-                            onChange={e => handleOfferChange(index, 'durationMonths', e.target.value)} 
-                            className="bg-white dark:bg-gray-950"
-                          />
-                          <Input 
-                            label={isAr ? 'السعر' : 'Price'} 
-                            type="number" 
-                            required 
-                            value={offer.price} 
-                            onChange={e => handleOfferChange(index, 'price', e.target.value)} 
-                            className="bg-white dark:bg-gray-950"
-                          />
-                          <div className="flex gap-2 items-end">
-                            <Input 
-                              label={isAr ? 'السعر القديم' : 'Old Price'} 
-                              type="number" 
-                              value={offer.oldPrice} 
-                              onChange={e => handleOfferChange(index, 'oldPrice', e.target.value)} 
-                              className="bg-white dark:bg-gray-950"
-                            />
-                            {offers.length > 1 && (
-                              <button 
-                                type="button" 
-                                onClick={() => removeOfferField(index)} 
-                                className="p-2.5 rounded-xl bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-all cursor-pointer"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="absolute -top-2 -right-2">
-                          <Badge variant="secondary" className="text-[8px] bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                            #{index + 1}
-                          </Badge>
-                        </div>
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel icon={Folder} required>{isAr ? 'التصنيف' : 'Category'}</FieldLabel>
+                  <FieldSelect
+                    icon={Folder}
+                    value={categoryId}
+                    required
+                    onChange={e => setCategoryId(e.target.value)}
+                    placeholder={isAr ? 'اختر التصنيف' : 'Choose a category'}
+                  >
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{isAr ? cat.nameAr : cat.nameEn}</option>
                     ))}
-                  </div>
+                  </FieldSelect>
                 </div>
-              )}
-            </div>
+                <div>
+                  <FieldLabel icon={User}>{isAr ? 'المدرب (اختياري)' : 'Instructor (optional)'}</FieldLabel>
+                  <FieldSelect
+                    icon={User}
+                    value={instructorId}
+                    onChange={e => setInstructorId(e.target.value)}
+                    placeholder={isAr ? 'اختر المدرب' : 'Choose an instructor'}
+                  >
+                    {instructors.map(inst => (
+                      <option key={inst.id} value={inst.id}>{inst.fullName}</option>
+                    ))}
+                  </FieldSelect>
+                </div>
+              </div>
+            </SectionCard>
 
-            {/* Section 5: Media & Publishing */}
-            <div className="space-y-3">
-              <SectionHeader icon={Image} title={isAr ? 'الوسائط والنشر' : 'Media & Publishing'} section="media" isOpen={sections.media} />
-              
-              {sections.media && (
-                <div className="p-6 bg-white/90 dark:bg-gray-950/90 backdrop-blur-sm rounded-xl border border-blue-200/50 dark:border-blue-800/50 space-y-4 animate-fade-in shadow-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        <span className="flex items-center gap-1.5">
-                          <Folder className="w-3.5 h-3.5 text-blue-500" />
-                          {isAr ? 'التصنيف' : 'Category'} <span className="text-red-500">*</span>
-                        </span>
-                      </label>
-                      <select 
-                        value={categoryId} 
-                        required 
-                        onChange={e => setCategoryId(e.target.value)} 
-                        className="w-full px-4 py-3 text-sm border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-gray-950 outline-none transition-all duration-200 text-gray-900 dark:text-white cursor-pointer"
-                      >
-                        <option value="">{isAr ? '-- اختر التصنيف --' : '-- Choose Category --'}</option>
-                        {categories.map(cat => (
-                          <option key={cat.id} value={cat.id}>{isAr ? cat.nameAr : cat.nameEn}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        <span className="flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-blue-500" />
-                          {isAr ? 'المدرب (اختياري)' : 'Instructor (Optional)'}
-                        </span>
-                      </label>
-                      <select 
-                        value={instructorId} 
-                        onChange={e => setInstructorId(e.target.value)} 
-                        className="w-full px-4 py-3 text-sm border-2 border-gray-200/50 dark:border-gray-800/50 focus:border-blue-500 rounded-xl bg-white dark:bg-gray-950 outline-none transition-all duration-200 text-gray-900 dark:text-white cursor-pointer"
-                      >
-                        <option value="">{isAr ? '-- اختر المدرب (اختياري) --' : '-- Choose Instructor (Optional) --'}</option>
-                        {instructors.map(inst => (
-                          <option key={inst.id} value={inst.id}>{inst.fullName}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
+            {/* ---------------------------------------------------------- */}
+            {/* PARTIE 2 — Contenu pédagogique                              */}
+            {/* ---------------------------------------------------------- */}
+            <SectionCard
+              icon={FileText}
+              title={isAr ? '٢. المحتوى التعليمي' : '2. Course Content'}
+              subtitle={isAr ? 'الوصف وما سيتعلمه الطالب' : 'Description and learning outcomes'}
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel required>{isAr ? 'الوصف (عربي)' : 'Description (Arabic)'}</FieldLabel>
+                  <textarea
+                    required
+                    value={descriptionAr}
+                    onChange={e => setDescriptionAr(e.target.value)}
+                    dir="rtl"
+                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                    rows={3}
+                    placeholder={isAr ? 'وصف موجز وجذاب للمساق...' : 'Short, engaging course description...'}
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>{isAr ? 'الوصف (إنجليزي)' : 'Description (English)'}</FieldLabel>
+                  <textarea
+                    required
+                    value={descriptionEn}
+                    onChange={e => setDescriptionEn(e.target.value)}
+                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                    rows={3}
+                    placeholder="Short, engaging course description..."
+                  />
+                </div>
+              </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      <span className="flex items-center gap-1.5">
-                        <Image className="w-3.5 h-3.5 text-blue-500" />
-                        {isAr ? 'صورة الغلاف' : 'Cover Image'}
-                      </span>
-                    </label>
-                    <div 
-                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
-                        imageDragOver 
-                          ? 'border-blue-500 bg-blue-500/10' 
-                          : 'border-gray-300/50 dark:border-gray-700/50 hover:border-blue-400'
-                      }`}
-                      onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
-                      onDragLeave={() => setImageDragOver(false)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setImageDragOver(false);
-                        if (e.dataTransfer.files[0]) setImageFile(e.dataTransfer.files[0]);
-                      }}
-                    >
-                      {imagePreview ? (
-                        <div className="relative">
-                          <img src={imagePreview} alt="Preview" className="max-h-48 mx-auto rounded-lg object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => { setImageFile(null); setImagePreview(''); }}
-                            className="absolute -top-2 -right-2 p-1 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
-                          >
-                            <XCircle className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <Upload className="w-10 h-10 mx-auto text-gray-400" />
-                          <div>
-                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">
-                              {isAr ? 'اسحب وأفلت الصورة هنا' : 'Drag and drop image here'}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              {isAr ? 'أو' : 'or'}
-                            </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel icon={ListChecks} required>{isAr ? 'ماذا ستتعلم (عربي)' : "What You'll Learn (Arabic)"}</FieldLabel>
+                  <textarea
+                    required
+                    value={whatYouWillLearnAr}
+                    onChange={e => setWhatYouWillLearnAr(e.target.value)}
+                    dir="rtl"
+                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                    rows={3}
+                    placeholder={isAr ? 'نقطة لكل سطر تفيد الطالب...' : 'One outcome per line...'}
+                  />
+                </div>
+                <div>
+                  <FieldLabel icon={ListChecks} required>{isAr ? 'ماذا ستتعلم (إنجليزي)' : "What You'll Learn (English)"}</FieldLabel>
+                  <textarea
+                    required
+                    value={whatYouWillLearnEn}
+                    onChange={e => setWhatYouWillLearnEn(e.target.value)}
+                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                    rows={3}
+                    placeholder="One outcome per line..."
+                  />
+                </div>
+              </div>
+            </SectionCard>
+
+            {/* ---------------------------------------------------------- */}
+            {/* PARTIE 3 — Offres, image de couverture et publication       */}
+            {/* ---------------------------------------------------------- */}
+            <SectionCard
+              icon={DollarSign}
+              title={isAr ? '٣. العروض والنشر' : '3. Offers & Publishing'}
+              subtitle={isAr ? 'باقات الاشتراك، الصورة، والحالة' : 'Subscription plans, cover image, and status'}
+            >
+              {/* Offres — chaque offre est une puce compacte, extensible pour édition */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <FieldLabel icon={Tag}>{isAr ? 'عروض الاشتراك' : 'Subscription Offers'}</FieldLabel>
+                  <button
+                    type="button"
+                    onClick={addOfferField}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-primary hover:underline"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    {isAr ? 'إضافة عرض' : 'Add offer'}
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {offers.map((offer, index) => {
+                    const isExpanded = expandedOfferIndex === index;
+                    const summaryLabel = offer.nameEn || offer.nameAr || (isAr ? `عرض ${index + 1}` : `Offer ${index + 1}`);
+                    return (
+                      <div
+                        key={index}
+                        className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${
+                          isExpanded ? 'border-primary/40' : 'border-gray-200 dark:border-gray-800'
+                        }`}
+                      >
+                        {/* Ligne résumé — cliquable, façon puce de filtre avec X */}
+                        <button
+                          type="button"
+                          onClick={() => setExpandedOfferIndex(isExpanded ? null : index)}
+                          className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-950 text-left"
+                        >
+                          <span className="flex items-center gap-2 min-w-0">
+                            <span className="inline-flex items-center justify-center size-5 rounded-full bg-primary/10 text-primary text-[10px] font-black shrink-0">
+                              {index + 1}
+                            </span>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
+                              {summaryLabel}
+                            </span>
+                            {offer.price && (
+                              <span className="text-xs font-bold text-primary shrink-0">{offer.price} DZD</span>
+                            )}
+                          </span>
+                          <span className="flex items-center gap-1 shrink-0">
+                            {offers.length > 1 && (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => { e.stopPropagation(); removeOfferField(index); }}
+                                className="p-1 rounded-full text-gray-400 hover:text-error hover:bg-error/10 transition-colors cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                          </span>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="p-4 pt-1 bg-gray-50/60 dark:bg-gray-950/40 border-t border-gray-100 dark:border-gray-800 space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div>
+                                <FieldLabel>{isAr ? 'اسم العرض (عربي)' : 'Offer Name (Arabic)'}</FieldLabel>
+                                <Input
+                                  required
+                                  value={offer.nameAr}
+                                  onChange={e => handleOfferChange(index, 'nameAr', e.target.value)}
+                                  placeholder={isAr ? 'مثال: باقة شهرية' : 'e.g. باقة شهرية'}
+                                  dir="rtl"
+                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <FieldLabel>{isAr ? 'اسم العرض (En)' : 'Offer Name (En)'}</FieldLabel>
+                                <Input
+                                  required
+                                  value={offer.nameEn}
+                                  onChange={e => handleOfferChange(index, 'nameEn', e.target.value)}
+                                  placeholder="e.g. Monthly Plan"
+                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                              <div>
+                                <FieldLabel icon={Calendar}>{isAr ? 'المدة (أشهر)' : 'Duration (months)'}</FieldLabel>
+                                <Input
+                                  type="number"
+                                  required
+                                  min="1"
+                                  value={offer.durationMonths}
+                                  onChange={e => handleOfferChange(index, 'durationMonths', e.target.value)}
+                                  placeholder="1"
+                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <FieldLabel icon={DollarSign}>{isAr ? 'السعر' : 'Price'}</FieldLabel>
+                                <Input
+                                  type="number"
+                                  required
+                                  min="0"
+                                  value={offer.price}
+                                  onChange={e => handleOfferChange(index, 'price', e.target.value)}
+                                  placeholder="2500"
+                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <FieldLabel icon={DollarSign}>{isAr ? 'السعر السابق' : 'Old Price'}</FieldLabel>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={offer.oldPrice}
+                                  onChange={e => handleOfferChange(index, 'oldPrice', e.target.value)}
+                                  placeholder={isAr ? 'اختياري' : 'Optional'}
+                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                />
+                              </div>
+                            </div>
                           </div>
-                          <label className="inline-block px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 cursor-pointer transition-colors shadow-lg shadow-blue-500/30">
-                            {isAr ? 'اختر صورة' : 'Choose Image'}
-                            <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} className="hidden" />
-                          </label>
-                        </div>
-                      )}
-                    </div>
-                    {imageFile && !imagePreview && (
-                      <p className="text-xs text-emerald-600 font-semibold mt-2 flex items-center gap-1.5">
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        {imageFile.name}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3 pt-2">
-                    <input 
-                      type="checkbox" 
-                      id="published" 
-                      checked={published} 
-                      onChange={e => setPublished(e.target.checked)} 
-                      className="w-5 h-5 text-blue-600 rounded border-2 border-gray-300/50 dark:border-gray-600/50 focus:ring-blue-500 focus:ring-2 cursor-pointer" 
-                    />
-                    <label htmlFor="published" className="text-sm font-semibold text-gray-700 dark:text-gray-300 cursor-pointer flex items-center gap-2">
-                      {published ? <Eye className="w-4 h-4 text-blue-600" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
-                      {isAr ? 'نشر المساق للجميع' : 'Publish Course'}
-                    </label>
-                  </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Form Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-blue-200/50 dark:border-blue-800/50">
-              <Button 
-                onClick={() => { setIsModalOpen(false); resetForm(); }} 
-                variant="outline" 
-                className="gap-2 px-6 py-2.5 rounded-xl border-2 border-gray-300/50 dark:border-gray-700/50 hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-all duration-200"
-              >
-                <XCircle className="w-4 h-4" />
-                {isAr ? 'إلغاء' : 'Cancel'}
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={submitting} 
-                className="gap-2 px-8 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all duration-300 text-white font-bold"
+              {/* Image de couverture */}
+              <div>
+                <FieldLabel icon={Image}>{isAr ? 'صورة الغلاف' : 'Cover Image'}</FieldLabel>
+                <div
+                  className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
+                    imageDragOver
+                      ? 'border-primary bg-primary/5'
+                      : 'border-gray-300 dark:border-gray-700 hover:border-primary/50'
+                  }`}
+                  onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
+                  onDragLeave={() => setImageDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setImageDragOver(false);
+                    if (e.dataTransfer.files[0]) setImageFile(e.dataTransfer.files[0]);
+                  }}
+                >
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img src={imagePreview} alt="Preview" className="max-h-40 mx-auto rounded-lg object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => { setImageFile(null); setImagePreview(''); }}
+                        className="absolute -top-2 -right-2 p-1 rounded-full bg-error text-white hover:bg-error/90 transition-colors"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      <Upload className="w-8 h-8 mx-auto text-gray-400" />
+                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                        {isAr ? 'اسحب وأفلت الصورة هنا، أو' : 'Drag and drop, or'}
+                      </p>
+                      <label className="inline-block px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 cursor-pointer transition-colors shadow-sm shadow-primary/25">
+                        {isAr ? 'اختر صورة' : 'Choose Image'}
+                        <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} className="hidden" />
+                      </label>
+                    </div>
+                  )}
+                </div>
+                {imageFile && !imagePreview && (
+                  <p className="text-xs text-success font-semibold mt-2 flex items-center gap-1.5">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    {imageFile.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Publier — puce filtre */}
+              <div>
+                <FieldLabel icon={Eye}>{isAr ? 'حالة النشر' : 'Publishing Status'}</FieldLabel>
+                <button
+                  type="button"
+                  onClick={() => setPublished((v) => !v)}
+                  className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 transition-all duration-200 text-sm font-semibold cursor-pointer ${
+                    published
+                      ? 'bg-primary/5 border-primary/40 text-primary'
+                      : 'bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  {published ? <Eye className="w-4 h-4 shrink-0" /> : <EyeOff className="w-4 h-4 shrink-0" />}
+                  {published
+                    ? (isAr ? 'منشور — مرئي لجميع الزوار' : 'Published — visible to everyone')
+                    : (isAr ? 'مسودة — غير مرئي بعد' : 'Draft — not visible yet')}
+                </button>
+              </div>
+            </SectionCard>
+
+            {/* Actions finales — CTA principal solide pleine largeur */}
+            <div className="flex flex-col gap-2 pt-2 pb-1">
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="w-full h-12 gap-2 rounded-xl bg-primary-dark hover:bg-primary-dark/90 transition-all duration-300 text-white font-bold text-sm"
               >
                 {submitting ? (
                   <>
@@ -888,9 +916,18 @@ export default function AdminCoursesPage() {
                 ) : (
                   <>
                     <CheckCircle className="w-4 h-4" />
-                    {isAr ? 'حفظ' : 'Save'}
+                    {isAr ? 'حفظ المساق' : 'Save Course'}
                   </>
                 )}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => { setIsModalOpen(false); resetForm(); }}
+                variant="outline"
+                className="w-full h-11 gap-2 rounded-xl border-2 border-gray-200 dark:border-gray-800 hover:border-error/30 hover:text-error transition-all duration-200"
+              >
+                <XCircle className="w-4 h-4" />
+                {isAr ? 'إلغاء' : 'Cancel'}
               </Button>
             </div>
           </form>

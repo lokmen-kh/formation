@@ -5,7 +5,6 @@ import { checkAccess } from '@/lib/enrollment/checkAccess';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-// Initialisation du client B2 S3
 const b2Client = new S3Client({
   endpoint: `https://${process.env.B2_ENDPOINT}`,
   region: process.env.B2_REGION || 'us-west-004',
@@ -15,7 +14,7 @@ const b2Client = new S3Client({
   },
 });
 
-async function videoTokenHandler(request, { params }) {
+async function documentTokenHandler(request, { params }) {
   try {
     const { lessonId } = await params;
 
@@ -35,18 +34,18 @@ async function videoTokenHandler(request, { params }) {
     // 1. Contrôle de validité de l'inscription étudiante
     const access = await checkAccess(request.user.userId, courseId);
     if (!access.hasAccess) {
-      return NextResponse.json({ error: 'Accès interdit : Abonnement inactif ou expiré.' }, { status: 403 });
+      return NextResponse.json({ error: 'Accès interdit : Abonnement inactif.' }, { status: 403 });
     }
 
-    if (!lesson.videoUrl) {
-      return NextResponse.json({ error: 'Aucun média vidéo n’est associé à cette leçon.' }, { status: 400 });
+    if (!lesson.documentUrl) {
+      return NextResponse.json({ error: 'Aucun document ressource n’est associé à cette leçon.' }, { status: 400 });
     }
 
-    let playbackUrl = lesson.videoUrl;
+    let downloadUrl = lesson.documentUrl;
 
-    // Si la vidéo est stockée sur Backblaze B2, nous générons un lien signé sécurisé d'une heure
-    if (lesson.videoUrl.includes(process.env.B2_ENDPOINT)) {
-      const urlParts = lesson.videoUrl.split(`${process.env.B2_ENDPOINT}/`);
+    // Génération d'un lien signé de téléchargement de 15 minutes (900 secondes)
+    if (lesson.documentUrl.includes(process.env.B2_ENDPOINT)) {
+      const urlParts = lesson.documentUrl.split(`${process.env.B2_ENDPOINT}/`);
       if (urlParts.length > 1) {
         const fileKey = urlParts[1];
 
@@ -55,16 +54,15 @@ async function videoTokenHandler(request, { params }) {
           Key: fileKey,
         });
 
-        // URL signée valable 1 heure (3600 secondes)
-        playbackUrl = await getSignedUrl(b2Client, command, { expiresIn: 3600 });
+        downloadUrl = await getSignedUrl(b2Client, command, { expiresIn: 900 });
       }
     }
 
-    return NextResponse.json({ success: true, playbackUrl });
+    return NextResponse.json({ success: true, downloadUrl });
   } catch (error) {
-    console.error('Erreur video-token :', error);
-    return NextResponse.json({ error: 'Erreur interne du serveur lors de la validation.' }, { status: 500 });
+    console.error('Erreur document-token API:', error);
+    return NextResponse.json({ error: 'Erreur interne du serveur lors de la génération du lien.' }, { status: 500 });
   }
 }
 
-export const GET = withAuth(videoTokenHandler);
+export const GET = withAuth(documentTokenHandler);

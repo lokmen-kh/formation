@@ -208,7 +208,7 @@ export default function CourseDetailsPage() {
     }
   }, [user, course]);
 
-  // Gérer la redirection d'abonnement [2]
+  // Gérer la soumission de la commande d'abonnement [2]
   const handleCheckoutRedirect = () => {
     if (!user) {
       router.push(`/login?redirect=/courses/${course.slug}`);
@@ -216,6 +216,20 @@ export default function CourseDetailsPage() {
     }
     if (!selectedOfferId) return;
     router.push(`/checkout?courseId=${course.id}&offerId=${selectedOfferId}`);
+  };
+
+  // NOUVEAU : Récupérer un lien de téléchargement signé temporaire pour le document [2]
+  const handleDownloadResource = async (lessonId) => {
+    try {
+      const res = await fetch(`/api/student/document-token/${lessonId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Accès verrouillé.');
+      
+      // Ouvrir le document privé pré-signé en toute sécurité dans un nouvel onglet
+      window.open(data.downloadUrl, '_blank');
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const handleAddComment = async (e) => {
@@ -416,12 +430,13 @@ export default function CourseDetailsPage() {
                   ) : (
                     <div className="space-y-4">
                       {chapters.map((chapter, i) => {
+                        const isPreview = i === 0;
                         const lessonsCount = chapter.lessons?.length || 0;
                         return (
                           <div key={chapter.id} className="border border-gray-150 dark:border-gray-800 rounded-2xl p-5 hover:shadow-md transition-shadow duration-300">
                             <div className="flex items-center justify-between gap-4 flex-wrap">
                               <div className="flex items-center gap-3.5">
-                                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isEnrolled ? 'bg-primary text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-800 text-gray-400'}`}>
+                                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isEnrolled ? 'bg-primary text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-850/60 text-gray-400'}`}>
                                   {isEnrolled ? <IconPlay className="w-4 h-4 fill-white" /> : <IconLock className="w-4 h-4" />}
                                 </span>
                                 <div>
@@ -440,21 +455,37 @@ export default function CourseDetailsPage() {
 
                             {/* Système d'interaction dynamique bilingue lié strictement à l'abonnement élève [2] */}
                             {lessonsCount > 0 && (
-                              <ul className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-855 space-y-2.5 text-xs text-gray-550 list-none">
+                              <ul className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-855 space-y-2.5 text-xs text-gray-555 list-none">
                                 {chapter.lessons.map((lesson, idx) => {
                                   if (isEnrolled) {
                                     return (
-                                      <li key={lesson.id}>
-                                        <Link
-                                          href={`/courses/${course.slug}/watch/${lesson.id}`}
-                                          className="flex items-center gap-2.5 py-2 px-3 rounded-xl transition-all duration-300 hover:bg-primary/5 hover:text-primary cursor-pointer group font-semibold"
-                                        >
-                                          <span className="opacity-70 group-hover:scale-110 transition-transform">📖</span>
-                                          <span>{idx + 1}. {isAr ? lesson.titleAr : lesson.titleEn}</span>
-                                          <span className="ms-auto text-[10px] font-black text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                                            {isAr ? 'مشاهدة الآن ←' : 'Watch Now →'}
-                                          </span>
-                                        </Link>
+                                      <li key={lesson.id} className="flex flex-col gap-2">
+                                        <div className="flex items-center justify-between w-full flex-wrap gap-2">
+                                          <Link
+                                            href={`/courses/${course.slug}/watch/${lesson.id}`}
+                                            className="flex-1 flex items-center gap-2.5 py-2 px-3 rounded-xl transition-all duration-300 hover:bg-primary/5 hover:text-primary cursor-pointer group font-semibold"
+                                          >
+                                            <span className="opacity-70 group-hover:scale-110 transition-transform">📖</span>
+                                            <span>{idx + 1}. {isAr ? lesson.titleAr : lesson.titleEn}</span>
+                                            <span className="ms-auto text-[10px] font-black text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                                              {isAr ? 'مشاهدة الآن ←' : 'Watch Now →'}
+                                            </span>
+                                          </Link>
+                                          
+                                          {/* DOCUMENT SECONDAIRE SÉCURISÉ : Téléchargement dynamique par token signé [2] */}
+                                          {lesson.documentUrl && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDownloadResource(lesson.id);
+                                              }}
+                                              className="inline-flex items-center gap-1.5 text-[9px] font-black bg-violet-500/10 text-violet-600 dark:text-violet-400 px-3 py-1.5 rounded-xl border border-violet-500/10 hover:bg-violet-500/20 cursor-pointer"
+                                            >
+                                              <IconDownload className="h-3 w-3 shrink-0 animate-pulse" />
+                                              {isAr ? 'تحميل المرفق' : 'Download Resource'}
+                                            </button>
+                                          )}
+                                        </div>
                                       </li>
                                     );
                                   } else {
