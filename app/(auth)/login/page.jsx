@@ -78,8 +78,8 @@ function AuthShell({ title, subtitle, children, footer }) {
   return (
     <div dir={dir} lang={language} className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
       <div className="grid min-h-screen lg:grid-cols-2">
-        {/* Colonne gauche - Dégradé Bleu Technique */}
-        <div className="relative hidden flex-col justify-between bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-10 text-white lg:flex">
+        {/* Colonne gauche — panneau solid primary-dark, sans dégradé */}
+        <div className="relative hidden flex-col justify-between bg-primary-dark p-10 text-white lg:flex">
           {/* Grille quadrillée technique en arrière-plan */}
           <div
             className="absolute inset-0 opacity-10 pointer-events-none animate-drift-grid"
@@ -89,9 +89,9 @@ function AuthShell({ title, subtitle, children, footer }) {
               backgroundSize: '40px 48px',
             }}
           />
-          
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-blue-400/20 blur-[120px] rounded-full pointer-events-none" />
-          
+
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary-light/20 blur-[120px] rounded-full pointer-events-none" />
+
           <Link href="/" className="relative z-10 flex items-center gap-2.5">
             <span className="flex size-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
               <IconGraduationCap className="size-5" />
@@ -100,7 +100,7 @@ function AuthShell({ title, subtitle, children, footer }) {
               {localT('EduPlus Platform', 'منصة التعليم بلس')}
             </span>
           </Link>
-          
+
           <div className="relative z-10 max-w-md space-y-6">
             <h2 className="font-display text-[clamp(1.7rem,2.4vw,2.2rem)] font-extrabold leading-tight">
               {localT(
@@ -119,7 +119,7 @@ function AuthShell({ title, subtitle, children, footer }) {
               ))}
             </ul>
           </div>
-          
+
           <p className="relative z-10 flex items-center gap-2 text-xs text-white/75">
             <IconShieldLock className="size-4 shrink-0" />
             <span>{localT("Your data stays private and encrypted.", "جميع بياناتك محمية ومشفرة بالكامل.")}</span>
@@ -130,21 +130,21 @@ function AuthShell({ title, subtitle, children, footer }) {
         <div className="flex flex-col px-6 py-8 sm:px-12 bg-white dark:bg-gray-950 transition-colors duration-300">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2.5 lg:invisible select-none">
-              <span className="bg-gradient-to-br from-blue-600 to-indigo-800 flex size-9 items-center justify-center rounded-xl text-white">
+              <span className="bg-primary flex size-9 items-center justify-center rounded-xl text-white">
                 <IconGraduationCap className="size-5" />
               </span>
               <span className="font-display text-lg font-extrabold tracking-tight text-gray-900 dark:text-white">
                 {isAr ? 'منصة' : 'Edu'}
-                <span className="text-blue-600 dark:text-blue-400">{isAr ? ' التعليم بلس' : 'Plus'}</span>
+                <span className="text-primary">{isAr ? ' التعليم بلس' : 'Plus'}</span>
               </span>
             </Link>
-            
+
             {/* Bascule bilingue et mode sombre */}
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={toggleLanguage}
-                className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 transition-all hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-400 dark:hover:text-blue-400 cursor-pointer"
+                className="rounded-lg border border-gray-200 dark:border-gray-800 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 transition-all hover:border-primary/40 hover:text-primary cursor-pointer"
               >
                 {language === "en" ? "العربية" : "English"}
               </button>
@@ -159,9 +159,9 @@ function AuthShell({ title, subtitle, children, footer }) {
               {title}
             </h1>
             <p className="mt-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
-            
+
             <div className="mt-8">{children}</div>
-            
+
             {footer && <div className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">{footer}</div>}
           </div>
         </div>
@@ -179,7 +179,7 @@ function LoginForm() {
   const { language } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -198,7 +198,7 @@ function LoginForm() {
     const sanitizedEmail = email.trim().toLowerCase();
 
     const result = await login(sanitizedEmail, password);
-    
+
     if (result.success) {
       if (redirectPath) {
         router.push(redirectPath);
@@ -217,7 +217,7 @@ function LoginForm() {
   return (
     <>
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 px-3 py-2.5 text-xs text-red-650 dark:text-red-400">
+        <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 px-3 py-2.5 text-xs text-red-600 dark:text-red-400">
           {error}
         </div>
       )}
@@ -227,46 +227,46 @@ function LoginForm() {
           <label htmlFor="email" className="text-xs font-bold text-gray-700 dark:text-gray-300">
             {localT("Email Address", "البريد الإلكتروني")}
           </label>
-          <Input 
-            id="email" 
-            type="email" 
-            required 
-            placeholder="you@example.com" 
-            value={email} 
-            onChange={e => setEmail(e.target.value)} 
-            autoComplete="email" 
-            className="w-full border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+          <Input
+            id="email"
+            type="email"
+            required
+            placeholder="you@example.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            autoComplete="email"
+            className="w-full border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           />
         </div>
-        
+
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label htmlFor="password" className="text-xs font-bold text-gray-700 dark:text-gray-300">
               {localT("Password", "كلمة المرور")}
             </label>
-            <button type="button" className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline transition-colors cursor-pointer">
+            <button type="button" className="text-[10px] font-bold text-primary hover:underline transition-colors cursor-pointer">
               {localT("Forgot?", "نسيتها؟")}
             </button>
           </div>
-          <Input 
-            id="password" 
-            type="password" 
-            required 
-            placeholder="••••••••" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)} 
-            autoComplete="current-password" 
-            className="w-full border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+          <Input
+            id="password"
+            type="password"
+            required
+            placeholder="••••••••"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            autoComplete="current-password"
+            className="w-full border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           />
         </div>
 
-        <Button 
-          type="submit" 
-          className="w-full gap-2 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-[1.01] text-xs py-2.5" 
+        <Button
+          type="submit"
+          className="w-full gap-2 bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/25 hover:shadow-md transition-all duration-300 transform hover:scale-[1.01] text-xs py-2.5"
           disabled={loading}
         >
-          {loading 
-            ? localT("Loading...", "جاري التحميل...") 
+          {loading
+            ? localT("Loading...", "جاري التحميل...")
             : localT("Sign in", "تسجيل الدخول")
           }
           <IconArrow className="w-4 h-4 rtl:rotate-180" />
@@ -283,7 +283,7 @@ function LoginForm() {
 export default function LoginPage() {
   const { language } = useLanguage();
   const isAr = language === 'ar';
-  
+
   const localT = (en, ar) => (isAr ? ar : en);
 
   return (
@@ -296,7 +296,7 @@ export default function LoginPage() {
       footer={
         <>
           {localT("No account yet?", "ليس لديك حساب بعد؟")}{" "}
-          <Link href="/register" className="font-bold text-blue-600 dark:text-blue-400 hover:underline transition-colors">
+          <Link href="/register" className="font-bold text-primary hover:underline transition-colors">
             {localT("Create one", "أنشئ حساباً جديداً")}
           </Link>
         </>
