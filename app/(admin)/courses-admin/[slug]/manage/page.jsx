@@ -29,19 +29,6 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 
-// Types pour les filtres
-interface TaskFilter {
-  priority: string[];
-  status: string[];
-  author: string[];
-  assignee: string[];
-  project: string[];
-  deadlineApproaching: boolean;
-  deadlineOverdue: boolean;
-  noAssignee: boolean;
-  noDate: boolean;
-}
-
 export default function AdminCourseDetailsPage() {
   const { slug } = useParams();
   const { language } = useLanguage();
@@ -82,7 +69,7 @@ export default function AdminCourseDetailsPage() {
   // États filtres (style photo)
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState<TaskFilter>({
+  const [filters, setFilters] = useState({
     priority: [],
     status: [],
     author: [],
@@ -132,9 +119,9 @@ export default function AdminCourseDetailsPage() {
   ];
 
   // Handlers filtres
-  const toggleFilter = (category: keyof TaskFilter, value: string) => {
+  const toggleFilter = (category, value) => {
     setFilters(prev => {
-      const current = prev[category] as string[];
+      const current = prev[category] || [];
       return {
         ...prev,
         [category]: current.includes(value)
@@ -144,10 +131,10 @@ export default function AdminCourseDetailsPage() {
     });
   };
 
-  const toggleCheckbox = (key: keyof TaskFilter) => {
+  const toggleCheckbox = (key) => {
     setFilters(prev => ({
       ...prev,
-      [key]: !prev[key] as boolean
+      [key]: !prev[key]
     }));
   };
 
@@ -460,19 +447,18 @@ export default function AdminCourseDetailsPage() {
               {activeFilterCount > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {filters.priority.map(p => {
-                    const label = priorities.find(pr => pr.value === p)?.label;
-                    const color = priorities.find(pr => pr.value === p)?.color;
+                    const priority = priorities.find(pr => pr.value === p);
                     return (
-                      <Badge key={p} variant="outline" className={`text-[9px] font-bold bg-${color}-50 text-${color}-600 border-${color}-200`}>
-                        {label}
+                      <Badge key={p} variant="outline" className={`text-[9px] font-bold bg-${priority?.color || 'gray'}-50 text-${priority?.color || 'gray'}-600 border-${priority?.color || 'gray'}-200`}>
+                        {priority?.label}
                       </Badge>
                     );
                   })}
                   {filters.status.map(s => {
-                    const label = statuses.find(st => st.value === s)?.label;
+                    const status = statuses.find(st => st.value === s);
                     return (
                       <Badge key={s} variant="outline" className="text-[9px] font-bold bg-blue-50 text-blue-600 border-blue-200">
-                        {label}
+                        {status?.label}
                       </Badge>
                     );
                   })}
