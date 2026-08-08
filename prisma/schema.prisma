@@ -6,16 +6,20 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum Role {
-  STUDENT
-  INSTRUCTOR
-  ADMIN
-  CLUB_REP
-}
+
 
 enum Audience {
   STUDENT
   PARENT
+}
+
+
+
+
+enum Role {
+  STUDENT
+  ADMIN
+  INSTRUCTOR
 }
 
 enum PlanType {
@@ -36,20 +40,24 @@ enum BookingStatus {
 }
 
 model User {
-  id              String             @id @default(uuid())
-  email           String             @unique
-  password        String
-  fullName        String
-  role            Role               @default(STUDENT)
-  audience        Audience           @default(STUDENT)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  enrollments     Enrollment[]
-  authoredCourses Course[]           @relation("InstructorCourses")
-  videoProgresses VideoProgress[]
-  bookings        ClubTableBooking[]
-  comments        Comment[]
-  feedbacks       Feedback[]
+  id             String       @id @default(uuid())
+  fullName       String
+  email          String       @unique
+  password       String
+  role           Role         @default(STUDENT)
+  
+  // Nouveaux champs pour le profil de l'étudiant bachelier/professionnel [2]
+  phone          String?      // Numéro de téléphone
+  educationLevel String?      // Niveau d'études actuel (ex: Terminale, Master)
+  birthDate      DateTime?    // Date de naissance
+  jobStatus      String?      // Statut professionnel (ex: 'STUDENT' ou 'EMPLOYEE')
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  enrollments    Enrollment[]
+  comments       Comment[]
+  feedbacks      Feedback[]
 }
 
 // Nouveau modèle : Catégorie dédiée
@@ -175,31 +183,34 @@ model Course {
 model Offer {
   id             String       @id @default(uuid())
   courseId       String
-  course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  nameAr         String
-  nameEn         String
-  durationMonths Int          @default(1) // Période en mois
-  price          Float
-  oldPrice       Float?       // Ancien prix (facultatif)
+  nameAr         String       // Nom bilingue de la formule (arabe)
+  nameEn         String       // Nom bilingue de la formule (anglais)
+  durationMonths Int          @default(1) // Durée de l'accès en mois
+  price          Float        // Prix standard réel de l'offre
+  oldPrice       Float?       // Ancien prix (pour prix barré/remise)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+
+  course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
   enrollments    Enrollment[]
 }
-
 model Enrollment {
-  id         String           @id @default(uuid())
-  userId     String
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  courseId   String
-  course     Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  offerId    String?          // Lié à l'offre choisie [2]
-  offer      Offer?           @relation(fields: [offerId], references: [id], onDelete: SetNull)
-  planType   PlanType         @default(STANDARD) // Reste pour compatibilité
-  status     EnrollmentStatus @default(PENDING)
-  receiptUrl String?
-  expiresAt  DateTime?
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
+  id          String           @id @default(uuid())
+  userId      String
+  courseId    String
+  planType    PlanType         @default(STANDARD) // Rétrocompatibilité Enum
+  status      EnrollmentStatus @default(PENDING)
+  receiptUrl  String?          // Reçu CCP téléversé
+  expiresAt   DateTime?        // Date d'expiration calculée à l'approbation
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // Nouvelle relation avec l'offre d'abonnement dynamique [2]
+  offerId     String?          
+  offer       Offer?           @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseId])
 }

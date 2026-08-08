@@ -48,6 +48,14 @@ function IconShieldLock(props) {
   );
 }
 
+function IconChevronRight(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Écrin Visuel d'Authentification (Design Unifié)                            */
 /* -------------------------------------------------------------------------- */
@@ -57,7 +65,6 @@ function AuthShell({ title, subtitle, children, footer }) {
   const isAr = language === 'ar';
   const dir = isAr ? 'rtl' : 'ltr';
 
-  // Traducteur local infaillible pour résoudre le problème d'I18n [1]
   const localT = (en, ar) => (isAr ? ar : en);
 
   const perks = [
@@ -78,9 +85,8 @@ function AuthShell({ title, subtitle, children, footer }) {
   return (
     <div dir={dir} lang={language} className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
       <div className="grid min-h-screen lg:grid-cols-2">
-        {/* Colonne gauche — panneau solid primary-dark, sans dégradé */}
+        {/* Colonne gauche — panneau solid primary-dark */}
         <div className="relative hidden flex-col justify-between bg-primary-dark p-10 text-white lg:flex">
-          {/* Grille quadrillée technique en arrière-plan */}
           <div
             className="absolute inset-0 opacity-10 pointer-events-none animate-drift-grid"
             style={{
@@ -92,7 +98,7 @@ function AuthShell({ title, subtitle, children, footer }) {
 
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary-light/20 blur-[120px] rounded-full pointer-events-none" />
 
-          <Link href="/" className="relative z-10 flex items-center gap-2.5">
+          <Link href="/" className="relative z-10 flex items-center gap-2.5 select-none">
             <span className="flex size-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
               <IconGraduationCap className="size-5" />
             </span>
@@ -187,37 +193,56 @@ function LoginForm() {
   const isAr = language === 'ar';
   const redirectPath = searchParams.get("redirect");
 
-  // Traducteur local infaillible [1]
   const localT = (en, ar) => (isAr ? ar : en);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // Éviter les erreurs d'insensibilité à la casse sous PostgreSQL [11]
+    // Éviter les erreurs d'insensibilité à la casse sous PostgreSQL
     const sanitizedEmail = email.trim().toLowerCase();
 
     const result = await login(sanitizedEmail, password);
 
-    if (result.success) {
+    // Si la tentative de connexion a réussi [2]
+    if (result && (result.success || result.role || result.user)) {
       if (redirectPath) {
         router.push(redirectPath);
       } else {
-        if (result.user.role === 'ADMIN' || result.user.role === 'INSTRUCTOR') {
-          router.push('/dashboard');
-        } else {
-          router.push('/my-courses');
+        try {
+          // FIX ROBUSTE : Interroger directement l'API de session sécurisée [5]
+          // pour contourner le délai asynchrone de mise à jour d'état React !
+          const meRes = await fetch('/api/auth/me');
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            const loggedUser = meData.user || meData;
+            const userRole = loggedUser?.role?.toUpperCase();
+
+            // Aiguillage précis vers les vraies destinations [5]
+            if (userRole === 'ADMIN') {
+              router.push('/admin/enrollments'); // Admin -> Gestion des inscriptions
+            } else if (userRole === 'INSTRUCTOR') {
+              router.push('/instructor'); // Professeur -> Espace formateur
+            } else {
+              router.push('/'); // Étudiant -> Page d'accueil publique
+            }
+          } else {
+            router.push('/'); // Fallback
+          }
+        } catch (err) {
+          console.error(err);
+          router.push('/'); // Fallback de secours
         }
       }
     } else {
-      setError(result.error);
+      setError(result?.error || (isAr ? 'خطأ في اسم المستخدم أو كلمة المرور.' : 'Invalid email or password.'));
     }
   };
 
   return (
     <>
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 px-3 py-2.5 text-xs text-red-600 dark:text-red-400">
+        <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/50 px-3 py-2.5 text-xs text-red-600 dark:text-red-400 font-bold animate-fade-in">
           {error}
         </div>
       )}
@@ -235,7 +260,7 @@ function LoginForm() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             autoComplete="email"
-            className="w-full border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            className="w-full border-gray-200 dark:border-gray-800 focus:ring-2 focus:ring-primary focus:border-transparent transition-all font-semibold"
           />
         </div>
 
@@ -244,9 +269,11 @@ function LoginForm() {
             <label htmlFor="password" className="text-xs font-bold text-gray-700 dark:text-gray-300">
               {localT("Password", "كلمة المرور")}
             </label>
-            <button type="button" className="text-[10px] font-bold text-primary hover:underline transition-colors cursor-pointer">
-              {localT("Forgot?", "نسيتها؟")}
-            </button>
+            <Link href="/forgot-password">
+              <button type="button" className="text-[10px] font-bold text-primary hover:underline transition-colors cursor-pointer">
+                {localT("Forgot?", "نسيتها؟")}
+              </button>
+            </Link>
           </div>
           <Input
             id="password"
@@ -262,7 +289,7 @@ function LoginForm() {
 
         <Button
           type="submit"
-          className="w-full gap-2 bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/25 hover:shadow-md transition-all duration-300 transform hover:scale-[1.01] text-xs py-2.5"
+          className="w-full gap-2 bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/25 hover:shadow-md transition-all duration-300 transform hover:scale-[1.01] text-xs py-2.5 font-bold cursor-pointer"
           disabled={loading}
         >
           {loading
@@ -302,7 +329,6 @@ export default function LoginPage() {
         </>
       }
     >
-      {/* Wrap LoginForm in Suspense to handle useSearchParams */}
       <Suspense fallback={
         <div className="flex justify-center py-8">
           <div className="animate-pulse text-gray-500 dark:text-gray-400">

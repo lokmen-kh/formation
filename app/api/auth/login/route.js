@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { comparePassword } from '@/lib/auth/bcrypt';
 import { signAccessToken, signRefreshToken } from '@/lib/auth/jwt';
 
-// Force cette route à être dynamique - ÉVITE LE PRÉ-RENDU
+// Force cette route à être dynamique - ÉVITE LE PRÉ-RENDU [1]
 export const dynamic = 'force-dynamic';
 
 // Optionnel : Désactiver la mise en cache
@@ -34,9 +34,19 @@ export async function POST(request) {
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
 
+    // MIGRATION DU PAYLOAD : Retourner également les nouveaux champs de profil [2]
     const response = NextResponse.json({
       message: 'Authentification réussie.',
-      user: { id: user.id, fullName: user.fullName, email: user.email, role: user.role }
+      user: { 
+        id: user.id, 
+        fullName: user.fullName, 
+        email: user.email, 
+        role: user.role,
+        phone: user.phone || null,
+        educationLevel: user.educationLevel || null,
+        birthDate: user.birthDate || null,
+        jobStatus: user.jobStatus || null
+      }
     });
 
     response.cookies.set('accessToken', accessToken, {
@@ -55,8 +65,8 @@ export async function POST(request) {
 
     return response;
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'Erreur interne.' }, { status: 500 });
+    console.error('Login API error:', error);
+    return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 });
   }
   
 }

@@ -39,6 +39,8 @@ import {
   X,
   Eraser,
   Calendar,
+  Video,
+  PlayCircle,
 } from 'lucide-react';
 
 /* -------------------------------------------------------------------------- */
@@ -55,7 +57,6 @@ const STAT_TONES = {
 
 /* -------------------------------------------------------------------------- */
 /* Champs réutilisables — libellé discret au-dessus + style "ligne de filtre" */
-/* (icône, bordure nette, chevron) inspiré de la capture de référence.        */
 /* -------------------------------------------------------------------------- */
 
 function FieldLabel({ icon: Icon, children, required }) {
@@ -85,19 +86,38 @@ function FieldSelect({ icon: Icon, value, onChange, required, placeholder, child
   );
 }
 
-function SectionCard({ icon: Icon, title, subtitle, children }) {
+/* -------------------------------------------------------------------------- */
+/* Onglets du formulaire                                                      */
+/* -------------------------------------------------------------------------- */
+
+function TabBar({ tabs, active, onChange, isAr }) {
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-950/30">
-        <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-          <Icon className="w-4 h-4" />
-        </div>
-        <div>
-          <h4 className="text-sm font-bold text-gray-900 dark:text-white">{title}</h4>
-          {subtitle && <p className="text-[11px] text-gray-400">{subtitle}</p>}
-        </div>
-      </div>
-      <div className="p-6 space-y-4">{children}</div>
+    <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800/50 rounded-xl border border-gray-200/60 dark:border-gray-700/60 overflow-x-auto no-scrollbar">
+      {tabs.map((tab) => {
+        const isActive = active === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onChange(tab.id)}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-200 shrink-0 ${
+              isActive
+                ? 'bg-white dark:bg-gray-900 text-primary shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <tab.icon className="w-3.5 h-3.5 shrink-0" />
+            {isAr ? tab.labelAr : tab.labelEn}
+            {tab.badge > 0 && (
+              <span className={`inline-flex items-center justify-center size-4 rounded-full text-[9px] font-black ${
+                isActive ? 'bg-primary/15 text-primary' : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
+              }`}>
+                {tab.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -115,6 +135,7 @@ export default function AdminCoursesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [activeTab, setActiveTab] = useState('general');
 
   const [titleAr, setTitleAr] = useState('');
   const [titleEn, setTitleEn] = useState('');
@@ -129,6 +150,11 @@ export default function AdminCoursesPage() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [imageDragOver, setImageDragOver] = useState(false);
+
+  // Vidéo d'introduction — distincte des vidéos de leçons gérées ailleurs
+  const [introVideoFile, setIntroVideoFile] = useState(null);
+  const [introVideoPreview, setIntroVideoPreview] = useState('');
+  const [introVideoDragOver, setIntroVideoDragOver] = useState(false);
 
   const [offers, setOffers] = useState([
     { nameAr: '', nameEn: '', durationMonths: 1, price: '', oldPrice: '' }
@@ -214,6 +240,7 @@ export default function AdminCoursesPage() {
       formData.append('offers', JSON.stringify(offers));
 
       if (imageFile) formData.append('image', imageFile);
+      if (introVideoFile) formData.append('introVideo', introVideoFile);
 
       const url = editingCourse
         ? `/api/admin/courses/${editingCourse.id}`
@@ -262,6 +289,8 @@ export default function AdminCoursesPage() {
     setPublished(course.published || false);
     setImagePreview(course.imageUrl || '');
     setImageFile(null);
+    setIntroVideoPreview(course.introVideoUrl || '');
+    setIntroVideoFile(null);
 
     if (course.offers && course.offers.length > 0) {
       setOffers(course.offers.map(o => ({
@@ -275,6 +304,7 @@ export default function AdminCoursesPage() {
       setOffers([{ nameAr: '', nameEn: '', durationMonths: 1, price: '', oldPrice: '' }]);
     }
     setExpandedOfferIndex(0);
+    setActiveTab('general');
     setIsModalOpen(true);
   };
 
@@ -287,6 +317,10 @@ export default function AdminCoursesPage() {
     setEditingCourse(null);
     setImagePreview('');
     setImageDragOver(false);
+    setIntroVideoFile(null);
+    setIntroVideoPreview('');
+    setIntroVideoDragOver(false);
+    setActiveTab('general');
   };
 
   const filteredCourses = courses.filter(course => {
@@ -306,6 +340,13 @@ export default function AdminCoursesPage() {
 
   const totalStudents = courses.reduce((acc, c) => acc + (c._count?.enrollments || 0), 0);
   const publishedCount = courses.filter(c => c.published).length;
+
+  const TABS = [
+    { id: 'general', labelEn: 'General', labelAr: 'عام', icon: Type },
+    { id: 'content', labelEn: 'Content', labelAr: 'المحتوى', icon: FileText },
+    { id: 'offers', labelEn: 'Offers', labelAr: 'العروض', icon: DollarSign, badge: offers.length },
+    { id: 'video', labelEn: 'Intro Video', labelAr: 'فيديو تعريفي', icon: Video },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f8f9fb] dark:bg-gray-950 p-4 md:p-6 lg:p-8">
@@ -473,6 +514,12 @@ export default function AdminCoursesPage() {
                             {course.offers.length} {isAr ? 'عروض' : 'Offers'}
                           </Badge>
                         )}
+                        {course.introVideoUrl && (
+                          <Badge variant="outline" className="gap-1.5 px-3 py-1 border-primary/20 text-primary">
+                            <PlayCircle className="w-3 h-3" />
+                            {isAr ? 'فيديو تعريفي' : 'Intro video'}
+                          </Badge>
+                        )}
                       </div>
                     </div>
 
@@ -525,7 +572,7 @@ export default function AdminCoursesPage() {
         )}
 
         {/* ==================================================================== */}
-        {/* MODAL — Formulaire en 3 parties fixes, style "ligne de filtre"       */}
+        {/* MODAL — Formulaire à onglets : Général / Contenu / Offres / Vidéo    */}
         {/* ==================================================================== */}
         <Modal
           isOpen={isModalOpen}
@@ -557,369 +604,458 @@ export default function AdminCoursesPage() {
             </div>
           }
         >
-          <form onSubmit={handleCreateSubmit} className="space-y-5 max-h-[75vh] overflow-y-auto px-1 py-2">
+          <form onSubmit={handleCreateSubmit} className="space-y-4">
 
-            {/* ---------------------------------------------------------- */}
-            {/* PARTIE 1 — Informations générales                          */}
-            {/* ---------------------------------------------------------- */}
-            <SectionCard
-              icon={Type}
-              title={isAr ? '١. المعلومات العامة' : '1. General Information'}
-              subtitle={isAr ? 'العنوان، الرابط، التصنيف والمدرب' : 'Title, URL, category and instructor'}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <FieldLabel icon={Type} required>{isAr ? 'العنوان (عربي)' : 'Title (Arabic)'}</FieldLabel>
-                  <Input
-                    required
-                    value={titleAr}
-                    onChange={e => setTitleAr(e.target.value)}
-                    placeholder={isAr ? 'مثال: أساسيات البرمجة' : 'e.g. Introduction to Programming'}
-                    className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
-                    dir="rtl"
-                  />
-                </div>
-                <div>
-                  <FieldLabel icon={Type} required>{isAr ? 'العنوان (إنجليزي)' : 'Title (English)'}</FieldLabel>
-                  <Input
-                    required
-                    value={titleEn}
-                    onChange={e => setTitleEn(e.target.value)}
-                    placeholder="e.g. Introduction to Programming"
-                    className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
-                  />
-                </div>
-              </div>
+            <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} isAr={isAr} />
 
-              <div>
-                <FieldLabel icon={Hash} required>{isAr ? 'الرابط المختصر (Slug)' : 'Slug (URL identifier)'}</FieldLabel>
-                <Input
-                  required
-                  value={slug}
-                  onChange={e => setSlug(e.target.value)}
-                  placeholder="introduction-to-programming"
-                  className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm font-mono"
-                />
-                <p className="text-[10px] text-gray-400 mt-1.5">
-                  {isAr ? 'يُستخدم في رابط المساق: /courses/your-slug' : 'Used in the course URL: /courses/your-slug'}
-                </p>
-              </div>
+            <div className="max-h-[60vh] overflow-y-auto px-1 py-1 space-y-4">
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <FieldLabel icon={Folder} required>{isAr ? 'التصنيف' : 'Category'}</FieldLabel>
-                  <FieldSelect
-                    icon={Folder}
-                    value={categoryId}
-                    required
-                    onChange={e => setCategoryId(e.target.value)}
-                    placeholder={isAr ? 'اختر التصنيف' : 'Choose a category'}
-                  >
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{isAr ? cat.nameAr : cat.nameEn}</option>
-                    ))}
-                  </FieldSelect>
-                </div>
-                <div>
-                  <FieldLabel icon={User}>{isAr ? 'المدرب (اختياري)' : 'Instructor (optional)'}</FieldLabel>
-                  <FieldSelect
-                    icon={User}
-                    value={instructorId}
-                    onChange={e => setInstructorId(e.target.value)}
-                    placeholder={isAr ? 'اختر المدرب' : 'Choose an instructor'}
-                  >
-                    {instructors.map(inst => (
-                      <option key={inst.id} value={inst.id}>{inst.fullName}</option>
-                    ))}
-                  </FieldSelect>
-                </div>
-              </div>
-            </SectionCard>
+              {/* ---------------------------------------------------------- */}
+              {/* ONGLET 1 — Informations générales                          */}
+              {/* ---------------------------------------------------------- */}
+              {activeTab === 'general' && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <FieldLabel icon={Type} required>{isAr ? 'العنوان (عربي)' : 'Title (Arabic)'}</FieldLabel>
+                      <Input
+                        required
+                        value={titleAr}
+                        onChange={e => setTitleAr(e.target.value)}
+                        placeholder={isAr ? 'مثال: أساسيات البرمجة' : 'e.g. Introduction to Programming'}
+                        className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
+                        dir="rtl"
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel icon={Type} required>{isAr ? 'العنوان (إنجليزي)' : 'Title (English)'}</FieldLabel>
+                      <Input
+                        required
+                        value={titleEn}
+                        onChange={e => setTitleEn(e.target.value)}
+                        placeholder="e.g. Introduction to Programming"
+                        className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
+                      />
+                    </div>
+                  </div>
 
-            {/* ---------------------------------------------------------- */}
-            {/* PARTIE 2 — Contenu pédagogique                              */}
-            {/* ---------------------------------------------------------- */}
-            <SectionCard
-              icon={FileText}
-              title={isAr ? '٢. المحتوى التعليمي' : '2. Course Content'}
-              subtitle={isAr ? 'الوصف وما سيتعلمه الطالب' : 'Description and learning outcomes'}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <FieldLabel required>{isAr ? 'الوصف (عربي)' : 'Description (Arabic)'}</FieldLabel>
-                  <textarea
-                    required
-                    value={descriptionAr}
-                    onChange={e => setDescriptionAr(e.target.value)}
-                    dir="rtl"
-                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
-                    rows={3}
-                    placeholder={isAr ? 'وصف موجز وجذاب للمساق...' : 'Short, engaging course description...'}
-                  />
-                </div>
-                <div>
-                  <FieldLabel required>{isAr ? 'الوصف (إنجليزي)' : 'Description (English)'}</FieldLabel>
-                  <textarea
-                    required
-                    value={descriptionEn}
-                    onChange={e => setDescriptionEn(e.target.value)}
-                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
-                    rows={3}
-                    placeholder="Short, engaging course description..."
-                  />
-                </div>
-              </div>
+                  <div>
+                    <FieldLabel icon={Hash} required>{isAr ? 'الرابط المختصر (Slug)' : 'Slug (URL identifier)'}</FieldLabel>
+                    <Input
+                      required
+                      value={slug}
+                      onChange={e => setSlug(e.target.value)}
+                      placeholder="introduction-to-programming"
+                      className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm font-mono"
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1.5">
+                      {isAr ? 'يُستخدم في رابط المساق: /courses/your-slug' : 'Used in the course URL: /courses/your-slug'}
+                    </p>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <FieldLabel icon={ListChecks} required>{isAr ? 'ماذا ستتعلم (عربي)' : "What You'll Learn (Arabic)"}</FieldLabel>
-                  <textarea
-                    required
-                    value={whatYouWillLearnAr}
-                    onChange={e => setWhatYouWillLearnAr(e.target.value)}
-                    dir="rtl"
-                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
-                    rows={3}
-                    placeholder={isAr ? 'نقطة لكل سطر تفيد الطالب...' : 'One outcome per line...'}
-                  />
-                </div>
-                <div>
-                  <FieldLabel icon={ListChecks} required>{isAr ? 'ماذا ستتعلم (إنجليزي)' : "What You'll Learn (English)"}</FieldLabel>
-                  <textarea
-                    required
-                    value={whatYouWillLearnEn}
-                    onChange={e => setWhatYouWillLearnEn(e.target.value)}
-                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
-                    rows={3}
-                    placeholder="One outcome per line..."
-                  />
-                </div>
-              </div>
-            </SectionCard>
-
-            {/* ---------------------------------------------------------- */}
-            {/* PARTIE 3 — Offres, image de couverture et publication       */}
-            {/* ---------------------------------------------------------- */}
-            <SectionCard
-              icon={DollarSign}
-              title={isAr ? '٣. العروض والنشر' : '3. Offers & Publishing'}
-              subtitle={isAr ? 'باقات الاشتراك، الصورة، والحالة' : 'Subscription plans, cover image, and status'}
-            >
-              {/* Offres — chaque offre est une puce compacte, extensible pour édition */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <FieldLabel icon={Tag}>{isAr ? 'عروض الاشتراك' : 'Subscription Offers'}</FieldLabel>
-                  <button
-                    type="button"
-                    onClick={addOfferField}
-                    className="inline-flex items-center gap-1.5 text-[11px] font-bold text-primary hover:underline"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    {isAr ? 'إضافة عرض' : 'Add offer'}
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {offers.map((offer, index) => {
-                    const isExpanded = expandedOfferIndex === index;
-                    const summaryLabel = offer.nameEn || offer.nameAr || (isAr ? `عرض ${index + 1}` : `Offer ${index + 1}`);
-                    return (
-                      <div
-                        key={index}
-                        className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${
-                          isExpanded ? 'border-primary/40' : 'border-gray-200 dark:border-gray-800'
-                        }`}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <FieldLabel icon={Folder} required>{isAr ? 'التصنيف' : 'Category'}</FieldLabel>
+                      <FieldSelect
+                        icon={Folder}
+                        value={categoryId}
+                        required
+                        onChange={e => setCategoryId(e.target.value)}
+                        placeholder={isAr ? 'اختر التصنيف' : 'Choose a category'}
                       >
-                        {/* Ligne résumé — cliquable, façon puce de filtre avec X */}
-                        <button
-                          type="button"
-                          onClick={() => setExpandedOfferIndex(isExpanded ? null : index)}
-                          className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-950 text-left"
-                        >
-                          <span className="flex items-center gap-2 min-w-0">
-                            <span className="inline-flex items-center justify-center size-5 rounded-full bg-primary/10 text-primary text-[10px] font-black shrink-0">
-                              {index + 1}
-                            </span>
-                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
-                              {summaryLabel}
-                            </span>
-                            {offer.price && (
-                              <span className="text-xs font-bold text-primary shrink-0">{offer.price} DZD</span>
-                            )}
-                          </span>
-                          <span className="flex items-center gap-1 shrink-0">
-                            {offers.length > 1 && (
-                              <span
-                                role="button"
-                                tabIndex={0}
-                                onClick={(e) => { e.stopPropagation(); removeOfferField(index); }}
-                                className="p-1 rounded-full text-gray-400 hover:text-error hover:bg-error/10 transition-colors cursor-pointer"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </span>
-                            )}
-                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                          </span>
-                        </button>
-
-                        {isExpanded && (
-                          <div className="p-4 pt-1 bg-gray-50/60 dark:bg-gray-950/40 border-t border-gray-100 dark:border-gray-800 space-y-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div>
-                                <FieldLabel>{isAr ? 'اسم العرض (عربي)' : 'Offer Name (Arabic)'}</FieldLabel>
-                                <Input
-                                  required
-                                  value={offer.nameAr}
-                                  onChange={e => handleOfferChange(index, 'nameAr', e.target.value)}
-                                  placeholder={isAr ? 'مثال: باقة شهرية' : 'e.g. باقة شهرية'}
-                                  dir="rtl"
-                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
-                                />
-                              </div>
-                              <div>
-                                <FieldLabel>{isAr ? 'اسم العرض (En)' : 'Offer Name (En)'}</FieldLabel>
-                                <Input
-                                  required
-                                  value={offer.nameEn}
-                                  onChange={e => handleOfferChange(index, 'nameEn', e.target.value)}
-                                  placeholder="e.g. Monthly Plan"
-                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
-                                />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-3">
-                              <div>
-                                <FieldLabel icon={Calendar}>{isAr ? 'المدة (أشهر)' : 'Duration (months)'}</FieldLabel>
-                                <Input
-                                  type="number"
-                                  required
-                                  min="1"
-                                  value={offer.durationMonths}
-                                  onChange={e => handleOfferChange(index, 'durationMonths', e.target.value)}
-                                  placeholder="1"
-                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
-                                />
-                              </div>
-                              <div>
-                                <FieldLabel icon={DollarSign}>{isAr ? 'السعر' : 'Price'}</FieldLabel>
-                                <Input
-                                  type="number"
-                                  required
-                                  min="0"
-                                  value={offer.price}
-                                  onChange={e => handleOfferChange(index, 'price', e.target.value)}
-                                  placeholder="2500"
-                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
-                                />
-                              </div>
-                              <div>
-                                <FieldLabel icon={DollarSign}>{isAr ? 'السعر السابق' : 'Old Price'}</FieldLabel>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={offer.oldPrice}
-                                  onChange={e => handleOfferChange(index, 'oldPrice', e.target.value)}
-                                  placeholder={isAr ? 'اختياري' : 'Optional'}
-                                  className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>{isAr ? cat.nameAr : cat.nameEn}</option>
+                        ))}
+                      </FieldSelect>
+                    </div>
+                    <div>
+                      <FieldLabel icon={User}>{isAr ? 'المدرب (اختياري)' : 'Instructor (optional)'}</FieldLabel>
+                      <FieldSelect
+                        icon={User}
+                        value={instructorId}
+                        onChange={e => setInstructorId(e.target.value)}
+                        placeholder={isAr ? 'اختر المدرب' : 'Choose an instructor'}
+                      >
+                        {instructors.map(inst => (
+                          <option key={inst.id} value={inst.id}>{inst.fullName}</option>
+                        ))}
+                      </FieldSelect>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Image de couverture */}
-              <div>
-                <FieldLabel icon={Image}>{isAr ? 'صورة الغلاف' : 'Cover Image'}</FieldLabel>
-                <div
-                  className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
-                    imageDragOver
-                      ? 'border-primary bg-primary/5'
-                      : 'border-gray-300 dark:border-gray-700 hover:border-primary/50'
-                  }`}
-                  onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
-                  onDragLeave={() => setImageDragOver(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setImageDragOver(false);
-                    if (e.dataTransfer.files[0]) setImageFile(e.dataTransfer.files[0]);
-                  }}
-                >
-                  {imagePreview ? (
-                    <div className="relative">
-                      <img src={imagePreview} alt="Preview" className="max-h-40 mx-auto rounded-lg object-cover" />
+              {/* ---------------------------------------------------------- */}
+              {/* ONGLET 2 — Contenu pédagogique                              */}
+              {/* ---------------------------------------------------------- */}
+              {activeTab === 'content' && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <FieldLabel required>{isAr ? 'الوصف (عربي)' : 'Description (Arabic)'}</FieldLabel>
+                      <textarea
+                        required
+                        value={descriptionAr}
+                        onChange={e => setDescriptionAr(e.target.value)}
+                        dir="rtl"
+                        className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                        rows={4}
+                        placeholder={isAr ? 'وصف موجز وجذاب للمساق...' : 'Short, engaging course description...'}
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel required>{isAr ? 'الوصف (إنجليزي)' : 'Description (English)'}</FieldLabel>
+                      <textarea
+                        required
+                        value={descriptionEn}
+                        onChange={e => setDescriptionEn(e.target.value)}
+                        className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                        rows={4}
+                        placeholder="Short, engaging course description..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <FieldLabel icon={ListChecks} required>{isAr ? 'ماذا ستتعلم (عربي)' : "What You'll Learn (Arabic)"}</FieldLabel>
+                      <textarea
+                        required
+                        value={whatYouWillLearnAr}
+                        onChange={e => setWhatYouWillLearnAr(e.target.value)}
+                        dir="rtl"
+                        className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                        rows={4}
+                        placeholder={isAr ? 'نقطة لكل سطر تفيد الطالب...' : 'One outcome per line...'}
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel icon={ListChecks} required>{isAr ? 'ماذا ستتعلم (إنجليزي)' : "What You'll Learn (English)"}</FieldLabel>
+                      <textarea
+                        required
+                        value={whatYouWillLearnEn}
+                        onChange={e => setWhatYouWillLearnEn(e.target.value)}
+                        className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                        rows={4}
+                        placeholder="One outcome per line..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ---------------------------------------------------------- */}
+              {/* ONGLET 3 — Offres, image de couverture et publication       */}
+              {/* ---------------------------------------------------------- */}
+              {activeTab === 'offers' && (
+                <div className="space-y-5 animate-fade-in">
+                  {/* Offres */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <FieldLabel icon={Tag}>{isAr ? 'عروض الاشتراك' : 'Subscription Offers'}</FieldLabel>
                       <button
                         type="button"
-                        onClick={() => { setImageFile(null); setImagePreview(''); }}
-                        className="absolute -top-2 -right-2 p-1 rounded-full bg-error text-white hover:bg-error/90 transition-colors"
+                        onClick={addOfferField}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-primary hover:underline"
                       >
-                        <XCircle className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" />
+                        {isAr ? 'إضافة عرض' : 'Add offer'}
                       </button>
                     </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      <Upload className="w-8 h-8 mx-auto text-gray-400" />
-                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">
-                        {isAr ? 'اسحب وأفلت الصورة هنا، أو' : 'Drag and drop, or'}
-                      </p>
-                      <label className="inline-block px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 cursor-pointer transition-colors shadow-sm shadow-primary/25">
-                        {isAr ? 'اختر صورة' : 'Choose Image'}
-                        <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} className="hidden" />
-                      </label>
+
+                    <div className="space-y-2">
+                      {offers.map((offer, index) => {
+                        const isExpanded = expandedOfferIndex === index;
+                        const summaryLabel = offer.nameEn || offer.nameAr || (isAr ? `عرض ${index + 1}` : `Offer ${index + 1}`);
+                        return (
+                          <div
+                            key={index}
+                            className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${
+                              isExpanded ? 'border-primary/40' : 'border-gray-200 dark:border-gray-800'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setExpandedOfferIndex(isExpanded ? null : index)}
+                              className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-950 text-left"
+                            >
+                              <span className="flex items-center gap-2 min-w-0">
+                                <span className="inline-flex items-center justify-center size-5 rounded-full bg-primary/10 text-primary text-[10px] font-black shrink-0">
+                                  {index + 1}
+                                </span>
+                                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
+                                  {summaryLabel}
+                                </span>
+                                {offer.price && (
+                                  <span className="text-xs font-bold text-primary shrink-0">{offer.price} DZD</span>
+                                )}
+                              </span>
+                              <span className="flex items-center gap-1 shrink-0">
+                                {offers.length > 1 && (
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={(e) => { e.stopPropagation(); removeOfferField(index); }}
+                                    className="p-1 rounded-full text-gray-400 hover:text-error hover:bg-error/10 transition-colors cursor-pointer"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </span>
+                                )}
+                                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                              </span>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="p-4 pt-1 bg-gray-50/60 dark:bg-gray-950/40 border-t border-gray-100 dark:border-gray-800 space-y-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  <div>
+                                    <FieldLabel>{isAr ? 'اسم العرض (عربي)' : 'Offer Name (Arabic)'}</FieldLabel>
+                                    <Input
+                                      required
+                                      value={offer.nameAr}
+                                      onChange={e => handleOfferChange(index, 'nameAr', e.target.value)}
+                                      placeholder={isAr ? 'مثال: باقة شهرية' : 'e.g. باقة شهرية'}
+                                      dir="rtl"
+                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <FieldLabel>{isAr ? 'اسم العرض (En)' : 'Offer Name (En)'}</FieldLabel>
+                                    <Input
+                                      required
+                                      value={offer.nameEn}
+                                      onChange={e => handleOfferChange(index, 'nameEn', e.target.value)}
+                                      placeholder="e.g. Monthly Plan"
+                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div>
+                                    <FieldLabel icon={Calendar}>{isAr ? 'المدة (أشهر)' : 'Duration (months)'}</FieldLabel>
+                                    <Input
+                                      type="number"
+                                      required
+                                      min="1"
+                                      value={offer.durationMonths}
+                                      onChange={e => handleOfferChange(index, 'durationMonths', e.target.value)}
+                                      placeholder="1"
+                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <FieldLabel icon={DollarSign}>{isAr ? 'السعر' : 'Price'}</FieldLabel>
+                                    <Input
+                                      type="number"
+                                      required
+                                      min="0"
+                                      value={offer.price}
+                                      onChange={e => handleOfferChange(index, 'price', e.target.value)}
+                                      placeholder="2500"
+                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <FieldLabel icon={DollarSign}>{isAr ? 'السعر السابق' : 'Old Price'}</FieldLabel>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={offer.oldPrice}
+                                      onChange={e => handleOfferChange(index, 'oldPrice', e.target.value)}
+                                      placeholder={isAr ? 'اختياري' : 'Optional'}
+                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Image de couverture */}
+                  <div>
+                    <FieldLabel icon={Image}>{isAr ? 'صورة الغلاف' : 'Cover Image'}</FieldLabel>
+                    <div
+                      className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
+                        imageDragOver
+                          ? 'border-primary bg-primary/5'
+                          : 'border-gray-300 dark:border-gray-700 hover:border-primary/50'
+                      }`}
+                      onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
+                      onDragLeave={() => setImageDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setImageDragOver(false);
+                        if (e.dataTransfer.files[0]) setImageFile(e.dataTransfer.files[0]);
+                      }}
+                    >
+                      {imagePreview ? (
+                        <div className="relative">
+                          <img src={imagePreview} alt="Preview" className="max-h-40 mx-auto rounded-lg object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => { setImageFile(null); setImagePreview(''); }}
+                            className="absolute -top-2 -right-2 p-1 rounded-full bg-error text-white hover:bg-error/90 transition-colors"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          <Upload className="w-8 h-8 mx-auto text-gray-400" />
+                          <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                            {isAr ? 'اسحب وأفلت الصورة هنا، أو' : 'Drag and drop, or'}
+                          </p>
+                          <label className="inline-block px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 cursor-pointer transition-colors shadow-sm shadow-primary/25">
+                            {isAr ? 'اختر صورة' : 'Choose Image'}
+                            <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} className="hidden" />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    {imageFile && !imagePreview && (
+                      <p className="text-xs text-success font-semibold mt-2 flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        {imageFile.name}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Publier — puce filtre */}
+                  <div>
+                    <FieldLabel icon={Eye}>{isAr ? 'حالة النشر' : 'Publishing Status'}</FieldLabel>
+                    <button
+                      type="button"
+                      onClick={() => setPublished((v) => !v)}
+                      className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 transition-all duration-200 text-sm font-semibold cursor-pointer ${
+                        published
+                          ? 'bg-primary/5 border-primary/40 text-primary'
+                          : 'bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      {published ? <Eye className="w-4 h-4 shrink-0" /> : <EyeOff className="w-4 h-4 shrink-0" />}
+                      {published
+                        ? (isAr ? 'منشور — مرئي لجميع الزوار' : 'Published — visible to everyone')
+                        : (isAr ? 'مسودة — غير مرئي بعد' : 'Draft — not visible yet')}
+                    </button>
+                  </div>
                 </div>
-                {imageFile && !imagePreview && (
-                  <p className="text-xs text-success font-semibold mt-2 flex items-center gap-1.5">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    {imageFile.name}
-                  </p>
-                )}
-              </div>
+              )}
 
-              {/* Publier — puce filtre */}
-              <div>
-                <FieldLabel icon={Eye}>{isAr ? 'حالة النشر' : 'Publishing Status'}</FieldLabel>
-                <button
-                  type="button"
-                  onClick={() => setPublished((v) => !v)}
-                  className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 transition-all duration-200 text-sm font-semibold cursor-pointer ${
-                    published
-                      ? 'bg-primary/5 border-primary/40 text-primary'
-                      : 'bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400'
-                  }`}
+              {/* ---------------------------------------------------------- */}
+              {/* ONGLET 4 — Vidéo d'introduction (nouveau)                   */}
+              {/* ---------------------------------------------------------- */}
+              {activeTab === 'video' && (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-primary/5 border border-primary/15">
+                    <Video className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                      {isAr
+                        ? 'فيديو قصير تعريفي يظهر في صفحة المساق قبل الاشتراك، لتحفيز الطلاب على التسجيل. مختلف عن فيديوهات الدروس التي تُدار من صفحة "إدارة المحتوى".'
+                        : "A short teaser video shown on the course page before enrollment, to help convince students to sign up. This is separate from lesson videos, which are managed on the course's content page."}
+                    </p>
+                  </div>
+
+                  <div>
+                    <FieldLabel icon={Video}>{isAr ? 'ملف الفيديو التعريفي' : 'Intro Video File'}</FieldLabel>
+                    <div
+                      className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+                        introVideoDragOver
+                          ? 'border-primary bg-primary/5'
+                          : 'border-gray-300 dark:border-gray-700 hover:border-primary/50'
+                      }`}
+                      onDragOver={(e) => { e.preventDefault(); setIntroVideoDragOver(true); }}
+                      onDragLeave={() => setIntroVideoDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIntroVideoDragOver(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file) {
+                          setIntroVideoFile(file);
+                          setIntroVideoPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                    >
+                      {introVideoPreview ? (
+                        <div className="relative">
+                          <video
+                            src={introVideoPreview}
+                            controls
+                            className="max-h-56 w-full mx-auto rounded-lg bg-black"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => { setIntroVideoFile(null); setIntroVideoPreview(''); }}
+                            className="absolute -top-2 -right-2 p-1 rounded-full bg-error text-white hover:bg-error/90 transition-colors"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <PlayCircle className="w-10 h-10 mx-auto text-gray-400" />
+                          <div>
+                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                              {isAr ? 'اسحب وأفلت الفيديو هنا' : 'Drag and drop video here'}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">{isAr ? 'أو' : 'or'}</p>
+                          </div>
+                          <label className="inline-block px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 cursor-pointer transition-colors shadow-sm shadow-primary/25">
+                            {isAr ? 'اختر فيديو' : 'Choose Video'}
+                            <input
+                              type="file"
+                              accept="video/*"
+                              onChange={e => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  setIntroVideoFile(file);
+                                  setIntroVideoPreview(URL.createObjectURL(file));
+                                }
+                              }}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    {introVideoFile && (
+                      <p className="text-xs text-success font-semibold mt-2 flex items-center gap-1.5">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        {introVideoFile.name}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-gray-400 mt-1.5">
+                      {isAr ? 'اختياري — يمكن إضافته أو تعديله لاحقاً في أي وقت.' : 'Optional — can be added or changed later at any time.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions finales — toujours visibles, quel que soit l'onglet actif */}
+            <div className="flex flex-col gap-2 pt-2 pb-1 border-t border-gray-200 dark:border-gray-800 mt-2">
+              <div className="pt-3">
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full h-12 gap-2 rounded-xl bg-primary-dark hover:bg-primary-dark/90 transition-all duration-300 text-white font-bold text-sm"
                 >
-                  {published ? <Eye className="w-4 h-4 shrink-0" /> : <EyeOff className="w-4 h-4 shrink-0" />}
-                  {published
-                    ? (isAr ? 'منشور — مرئي لجميع الزوار' : 'Published — visible to everyone')
-                    : (isAr ? 'مسودة — غير مرئي بعد' : 'Draft — not visible yet')}
-                </button>
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {isAr ? 'جاري الحفظ...' : 'Saving...'}
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      {isAr ? 'حفظ المساق' : 'Save Course'}
+                    </>
+                  )}
+                </Button>
               </div>
-            </SectionCard>
-
-            {/* Actions finales — CTA principal solide pleine largeur */}
-            <div className="flex flex-col gap-2 pt-2 pb-1">
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="w-full h-12 gap-2 rounded-xl bg-primary-dark hover:bg-primary-dark/90 transition-all duration-300 text-white font-bold text-sm"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {isAr ? 'جاري الحفظ...' : 'Saving...'}
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    {isAr ? 'حفظ المساق' : 'Save Course'}
-                  </>
-                )}
-              </Button>
               <Button
                 type="button"
                 onClick={() => { setIsModalOpen(false); resetForm(); }}

@@ -141,11 +141,6 @@ export default function Navbar() {
   const userMenuRef = useRef(null);
   const mobileMenuId = useId();
 
-  // Portal target must only be used after mount (no `document` during SSR).
-  // This also sidesteps the classic bug where a transformed/filtered ancestor
-  // (e.g. a Framer Motion page-transition wrapper) turns into the containing
-  // block for `position: fixed` descendants, making the fixed header/menu
-  // scroll away with the page instead of staying pinned to the viewport.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -201,6 +196,16 @@ export default function Navbar() {
   };
 
   const role = user?.role?.toLowerCase();
+  const userInitial = (user?.fullName || user?.email || '?').trim().charAt(0).toUpperCase();
+
+  const roleLabels = {
+    admin: { en: 'Administrator', ar: 'مدير النظام' },
+    instructor: { en: 'Instructor', ar: 'مدرب' },
+    student: { en: 'Student', ar: 'طالب' },
+  };
+  const roleLabel = roleLabels[role]
+    ? (isAr ? roleLabels[role].ar : roleLabels[role].en)
+    : (isAr ? 'مستخدم' : 'User');
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -209,8 +214,6 @@ export default function Navbar() {
     setMobileSearchOpen(false);
   };
 
-  // Simple, reliable toggle. No pointer/scroll heuristics: those caused
-  // legitimate taps right after scrolling to be silently swallowed.
   const handleMenuClick = () => {
     setMobileMenuOpen((v) => !v);
   };
@@ -240,7 +243,7 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop Navigation (links + dropdowns) */}
+        {/* Desktop Navigation */}
         <div className="hidden xl:flex items-center gap-0.5 flex-1 min-w-0 px-2">
           {BASE_NAV_ITEMS.map((item) => {
             if (item.dropdown) {
@@ -262,7 +265,7 @@ export default function Navbar() {
 
                   <div
                     role="menu"
-                    className={`absolute top-full mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-md overflow-hidden origin-top transition-all duration-200 ${
+                    className={`absolute top-full mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-150/50 dark:border-gray-800 rounded-2xl shadow-md overflow-hidden origin-top transition-all duration-300 ${
                       aboutOpen
                         ? 'opacity-100 scale-100 pointer-events-auto translate-y-0'
                         : 'opacity-0 scale-95 pointer-events-none -translate-y-1'
@@ -328,7 +331,7 @@ export default function Navbar() {
 
             <div
               role="menu"
-              className={`absolute top-full mt-2 w-72 max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-md overflow-hidden origin-top transition-all duration-200 ${
+              className={`absolute top-full mt-2 w-72 max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-150/50 dark:border-gray-800 rounded-2xl shadow-md overflow-hidden origin-top transition-all duration-300 ${
                 catOpen
                   ? 'opacity-100 scale-100 pointer-events-auto translate-y-0'
                   : 'opacity-0 scale-95 pointer-events-none -translate-y-1'
@@ -370,7 +373,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Search Bar (tablet/desktop, from md up) */}
+        {/* Search Bar */}
         <form
           onSubmit={handleSearchSubmit}
           className="hidden md:flex w-full max-w-[150px] lg:max-w-xs items-center gap-2 px-3 lg:px-4 py-2 rounded-full bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-800 focus-within:border-primary/40 focus-within:bg-white dark:focus-within:bg-gray-900 transition-colors duration-200"
@@ -385,7 +388,7 @@ export default function Navbar() {
           />
         </form>
 
-        {/* Mobile Search Button (below md) */}
+        {/* Mobile Search Button */}
         <button
           type="button"
           className={`md:hidden p-2 rounded-xl transition-colors duration-200 shrink-0 ${
@@ -400,7 +403,7 @@ export default function Navbar() {
           <Search className="size-5" />
         </button>
 
-        {/* Utility icons: hidden on the smallest screens, shown from sm */}
+        {/* Utility icons */}
         <span className="hidden sm:inline-flex shrink-0">
           <LanguageSwitcher />
         </span>
@@ -408,7 +411,7 @@ export default function Navbar() {
           <ThemeToggle />
         </span>
 
-        {/* Right cluster: capsule (auth) + mobile menu button */}
+        {/* Right cluster: capsule (auth) */}
         <div className="flex items-center gap-2 shrink-0">
           {user ? (
             <div ref={userMenuRef} className="relative shrink-0">
@@ -418,35 +421,58 @@ export default function Navbar() {
                 aria-expanded={userMenuOpen}
                 className="flex items-center p-0.5 rounded-full border-2 border-primary/20 hover:border-primary/50 transition-colors duration-200 cursor-pointer"
               >
-                <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                  <User className="size-3.5 sm:size-4" />
+                <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs">
+                  {userInitial}
                 </div>
               </button>
 
+              {/* Menu Profil (Correction alignement pour éviter d'apparaître sur le côté) */}
               <div
                 role="menu"
-                className={`absolute ${isAr ? 'start-0' : 'end-0'} mt-2 w-56 max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-md overflow-hidden origin-top transition-all duration-200 ${
+                className={`absolute ${isAr ? 'left-0' : 'right-0'} mt-2 w-64 max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-150/50 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden origin-top transition-all duration-300 ${
                   userMenuOpen
                     ? 'opacity-100 scale-100 pointer-events-auto translate-y-0'
                     : 'opacity-0 scale-95 pointer-events-none -translate-y-1'
                 }`}
               >
                 <div className="p-2 space-y-1">
-                  <div className="px-3 py-3 mb-1 border-b border-gray-100 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-950/30 rounded-xl">
-                    <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
-                      {user.fullName || user.email}
-                    </p>
-                    <p className="text-[10px] text-gray-400 font-black capitalize mt-0.5">{role || 'user'}</p>
+                  <div className="flex items-center gap-3 px-3 py-3 mb-1 border-b border-gray-100 dark:border-gray-850 bg-gray-50/60 dark:bg-gray-950/30 rounded-xl">
+                    <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm shrink-0">
+                      {userInitial}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                        {user.fullName || user.email}
+                      </p>
+                      {user.fullName && (
+                        <p className="text-[10px] text-gray-400 truncate">{user.email}</p>
+                      )}
+                      <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wide">
+                        {roleLabel}
+                      </span>
+                    </div>
                   </div>
 
+                  {/* Accès rapide aux cours de l'élève */}
                   <Link
                     href="/my-courses"
                     role="menuitem"
                     onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
+                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-650 dark:text-gray-300 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
                   >
                     <BookMarked className="size-4 shrink-0" />
-                    {isAr ? 'دوراتي' : 'My Courses'}
+                    {isAr ? 'دوراتي المفعّلة' : 'My Courses'}
+                  </Link>
+
+                  {/* NOUVEAU : Lien direct de profil bilingue pour modification de données [2] */}
+                  <Link
+                    href="/profile"
+                    role="menuitem"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-650 dark:text-gray-300 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
+                  >
+                    <User className="size-4 shrink-0" />
+                    {isAr ? 'الملف الشخصي والبيانات' : 'Edit My Profile'}
                   </Link>
 
                   <div className="border-t border-gray-100 dark:border-gray-800 pt-2 mt-1">
@@ -455,7 +481,7 @@ export default function Navbar() {
                         logout();
                         setUserMenuOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors duration-150 cursor-pointer"
+                      className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-error hover:bg-error/10 transition-colors duration-150 cursor-pointer"
                     >
                       <LogOut className="size-4 shrink-0" />
                       {isAr ? 'تسجيل الخروج' : 'Logout'}
@@ -466,11 +492,7 @@ export default function Navbar() {
             </div>
           ) : (
             <>
-              {/* Solid-primary capsule — signature element, no gradient.
-                  >= lg: full pill with Login text + Sign Up button.
-                  sm–lg: compact icon-only pill (keeps the same visual language
-                  without crowding smaller viewports).
-                  < sm: hidden entirely, actions live in the mobile menu. */}
+              {/* Capsule non authentifié */}
               <div className="hidden sm:flex items-center rounded-full bg-primary shadow-sm shadow-primary/30 overflow-hidden shrink-0">
                 <Link
                   href="/login"
@@ -497,8 +519,6 @@ export default function Navbar() {
                 </Link>
               </div>
 
-              {/* < sm: single round primary CTA so the smallest screens still
-                  get a one-tap path to sign up, without duplicating the whole pill. */}
               <Link
                 href="/register"
                 aria-label={isAr ? 'ابدأ الآن' : 'Sign up'}
@@ -509,7 +529,7 @@ export default function Navbar() {
             </>
           )}
 
-          {/* Mobile Menu Button - simple, reliable toggle */}
+          {/* Mobile Menu Button */}
           <button
             type="button"
             onClick={handleMenuClick}
@@ -628,7 +648,7 @@ export default function Navbar() {
                   key={sub.path}
                   href={sub.path}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900/60 hover:text-primary transition-colors duration-150"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-gray-550 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900/60 hover:text-primary transition-colors duration-150"
                 >
                   <SubIcon className="size-4 shrink-0" />
                   <span>{isAr ? sub.ar : sub.en}</span>
@@ -667,8 +687,7 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Tools — also live here now so they're reachable below the sm
-              breakpoint, where they're hidden from the top bar. */}
+          {/* Tools */}
           <div className="flex items-center gap-3 px-2 pt-1">
             <LanguageSwitcher />
             <ThemeToggle />
@@ -678,14 +697,16 @@ export default function Navbar() {
           {user ? (
             <div className="pt-4 space-y-1.5 border-t border-gray-100 dark:border-gray-900">
               <div className="flex items-center gap-3 px-3 py-3 bg-gray-50/60 dark:bg-gray-900/30 rounded-2xl border border-gray-100 dark:border-gray-900">
-                <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                  <User className="size-5" />
+                <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm shrink-0">
+                  {userInitial}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
                     {user.fullName || user.email}
                   </p>
-                  <p className="text-xs text-gray-400 capitalize">{role || 'user'}</p>
+                  <span className="inline-flex items-center mt-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-wide">
+                    {roleLabel}
+                  </span>
                 </div>
               </div>
 
@@ -695,7 +716,17 @@ export default function Navbar() {
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/60 transition-colors duration-150"
               >
                 <BookMarked className="size-5 shrink-0" />
-                {isAr ? 'دوراتي' : 'My Courses'}
+                {isAr ? 'دوراتي المفعّلة' : 'My Courses'}
+              </Link>
+
+              {/* NOUVEAU : Lien direct bilingue de profil sous mobile [2] */}
+              <Link
+                href="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-650 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/60 transition-colors duration-150"
+              >
+                <User className="size-5 shrink-0" />
+                {isAr ? 'الملف الشخصي والبيانات' : 'Edit My Profile'}
               </Link>
 
               <button
@@ -703,7 +734,7 @@ export default function Navbar() {
                   logout();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors duration-150 cursor-pointer"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-error hover:bg-error/10 transition-colors duration-150 cursor-pointer"
               >
                 <LogOut className="size-5 shrink-0" />
                 {isAr ? 'تسجيل الخروج' : 'Logout'}
