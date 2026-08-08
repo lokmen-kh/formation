@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/Button';
 import ThemeToggle from '@/components/ThemeToggle';
 import Link from 'next/link';
 
+// FORCE DYNAMIC RENDERING : Résout définitivement l'échec de pré-rendu au build sur Vercel
+export const dynamic = 'force-dynamic';
+
 /* -------------------------------------------------------------------------- */
 /* Icônes Linéaires Vectorielles                                             */
 /* -------------------------------------------------------------------------- */
@@ -181,7 +184,7 @@ function AuthShell({ title, subtitle, children, footer }) {
 /* -------------------------------------------------------------------------- */
 
 function LoginForm() {
-  const { login, loading } = useAuth();
+  const { login, loading, user } = useAuth();
   const { language } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -210,8 +213,7 @@ function LoginForm() {
         router.push(redirectPath);
       } else {
         try {
-          // FIX ROBUSTE : Interroger directement l'API de session sécurisée [5]
-          // pour contourner le délai asynchrone de mise à jour d'état React !
+          // Interroger directement l'API de session sécurisée [5]
           const meRes = await fetch('/api/auth/me');
           if (meRes.ok) {
             const meData = await meRes.json();
@@ -331,7 +333,7 @@ export default function LoginPage() {
     >
       <Suspense fallback={
         <div className="flex justify-center py-8">
-          <div className="animate-pulse text-gray-500 dark:text-gray-400">
+          <div className="animate-pulse text-gray-550 dark:text-gray-400">
             {localT("Loading...", "جاري التحميل...")}
           </div>
         </div>
