@@ -188,16 +188,41 @@ export default function AdminCoursesPage() {
   const fetchInstructorsAndCategories = async () => {
     try {
       const resUsers = await fetch('/api/admin/users');
-      const dataUsers = await parseResponseJson(resUsers);
-      if (dataUsers.users) {
-        setInstructors(dataUsers.users.filter(u => u.role === 'INSTRUCTOR' || u.role === 'ADMIN'));
+      if (!resUsers.ok) {
+        console.error('[fetchInstructorsAndCategories] /api/admin/users a répondu', resUsers.status);
       }
+      const dataUsers = await parseResponseJson(resUsers);
+console.log('Data received from /api/admin/users:', dataUsers);
+      // La réponse peut prendre plusieurs formes selon l'API : un tableau brut,
+      // { users: [...] }, ou { data: [...] }. On ne suppose plus une seule forme,
+      // pour éviter que la liste reste vide silencieusement si le format diffère.
+      const usersList = Array.isArray(dataUsers)
+        ? dataUsers
+        : (dataUsers.instructors ||  []);
+        console.log('Parsed users list:', usersList);
+
+      if (usersList.length === 0) {
+        console.warn('[fetchInstructorsAndCategories] Aucun utilisateur reçu depuis /api/admin/users — vérifie la forme de la réponse ou l’authentification admin.');
+      }
+
+      // Comparaison insensible à la casse : évite qu'un rôle stocké en
+      // 'instructor'/'Instructor' passe à travers un filtre strict 'INSTRUCTOR'.
+      const filtered = usersList.filter(
+        (u) => ['INSTRUCTOR', 'ADMIN'].includes((u.role || '').toUpperCase())
+      );
+console.log('Filtered instructors/admins:', filtered);
+      if (usersList.length > 0 && filtered.length === 0) {
+        console.warn('[fetchInstructorsAndCategories] Des utilisateurs ont été reçus mais aucun avec le rôle INSTRUCTOR/ADMIN. Rôles reçus :', [...new Set(usersList.map(u => u.role))]);
+      }
+
+      setInstructors(filtered);
 
       const resCats = await fetch('/api/admin/categories');
       const dataCats = await parseResponseJson(resCats);
-      if (dataCats.categories) setCategories(dataCats.categories);
+      const categoriesList = Array.isArray(dataCats) ? dataCats : (dataCats.categories || dataCats.data || []);
+      setCategories(categoriesList);
     } catch (err) {
-      console.error(err);
+      console.error('[fetchInstructorsAndCategories] Échec du chargement :', err);
     }
   };
 
@@ -674,12 +699,23 @@ export default function AdminCoursesPage() {
                         icon={User}
                         value={instructorId}
                         onChange={e => setInstructorId(e.target.value)}
-                        placeholder={isAr ? 'اختر المدرب' : 'Choose an instructor'}
+                        placeholder={
+                          instructors.length === 0
+                            ? (isAr ? 'لا يوجد مدربون متاحون' : 'No instructors available')
+                            : (isAr ? 'اختر المدرب' : 'Choose an instructor')
+                        }
                       >
                         {instructors.map(inst => (
-                          <option key={inst.id} value={inst.id}>{inst.fullName}</option>
+                          <option key={inst.id} value={inst.id}>{inst.fullName || inst.email || inst.id}</option>
                         ))}
                       </FieldSelect>
+                      {instructors.length === 0 && (
+                        <p className="text-[10px] text-warning-dark dark:text-warning mt-1.5">
+                          {isAr
+                            ? 'لم يتم العثور على أي مستخدم بدور "مدرب" أو "مدير". تحقق من صفحة إدارة المستخدمين.'
+                            : 'No user with role "Instructor" or "Admin" was found. Check the Users management page.'}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

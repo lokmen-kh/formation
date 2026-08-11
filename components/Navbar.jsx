@@ -331,7 +331,7 @@ export default function Navbar() {
 
             <div
               role="menu"
-              className={`absolute top-full mt-2 w-72 max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-150/50 dark:border-gray-800 rounded-2xl shadow-md overflow-hidden origin-top transition-all duration-300 ${
+              className={`absolute top-full mt-2 w-72 max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-150/50 dark:border-gray-800 rounded-2xl shadow-md overflow-hidden origin-top transition-all duration-200 ${
                 catOpen
                   ? 'opacity-100 scale-100 pointer-events-auto translate-y-0'
                   : 'opacity-0 scale-95 pointer-events-none -translate-y-1'
@@ -354,7 +354,7 @@ export default function Navbar() {
                           href={`/courses?category=${encodeURIComponent(cat.slug)}`}
                           role="menuitem"
                           onClick={() => setCatOpen(false)}
-                          className="flex items-center gap-2 px-2.5 py-2.5 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-400 hover:bg-primary/5 hover:text-primary transition-colors duration-150 group"
+                          className="flex items-center gap-2 px-2.5 py-2.5 rounded-xl text-xs font-bold text-gray-650 dark:text-gray-400 hover:bg-primary/5 hover:text-primary transition-colors duration-150 group"
                         >
                           <CatIcon className="size-4 shrink-0 text-gray-400 group-hover:text-primary transition-colors" />
                           <span className="flex-1 truncate">{isAr ? cat.nameAr : cat.nameEn}</span>
@@ -364,7 +364,7 @@ export default function Navbar() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 py-2 text-center">
+                  <p className="text-xs text-gray-455 py-2 text-center">
                     {isAr ? 'لا توجد فئات حالياً' : 'No categories yet'}
                   </p>
                 )}
@@ -394,7 +394,7 @@ export default function Navbar() {
           className={`md:hidden p-2 rounded-xl transition-colors duration-200 shrink-0 ${
             mobileSearchOpen
               ? 'text-primary bg-primary/5'
-              : 'hover:bg-gray-50 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-300'
+              : 'hover:bg-gray-50 dark:hover:bg-gray-900 text-gray-650 dark:text-gray-300'
           }`}
           aria-label={isAr ? 'بحث' : 'Search'}
           aria-expanded={mobileSearchOpen}
@@ -426,7 +426,7 @@ export default function Navbar() {
                 </div>
               </button>
 
-              {/* Menu Profil (Correction alignement pour éviter d'apparaître sur le côté) */}
+              {/* Menu Profil (Correction alignement physique pour éviter d'apparaître sur le côté) */}
               <div
                 role="menu"
                 className={`absolute ${isAr ? 'left-0' : 'right-0'} mt-2 w-64 max-w-[90vw] bg-white dark:bg-gray-900 border border-gray-150/50 dark:border-gray-800 rounded-2xl shadow-xl overflow-hidden origin-top transition-all duration-300 ${
@@ -436,12 +436,12 @@ export default function Navbar() {
                 }`}
               >
                 <div className="p-2 space-y-1">
-                  <div className="flex items-center gap-3 px-3 py-3 mb-1 border-b border-gray-100 dark:border-gray-850 bg-gray-50/60 dark:bg-gray-950/30 rounded-xl">
+                  <div className="flex items-center gap-3 px-3 py-3 mb-1 border-b border-gray-100 dark:border-gray-850 bg-gray-50/60 dark:bg-gray-955/30 rounded-xl">
                     <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm shrink-0">
                       {userInitial}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                      <p className="text-xs font-bold text-gray-950 dark:text-white truncate">
                         {user.fullName || user.email}
                       </p>
                       {user.fullName && (
@@ -453,27 +453,56 @@ export default function Navbar() {
                     </div>
                   </div>
 
-                  {/* Accès rapide aux cours de l'élève */}
-                  <Link
-                    href="/my-courses"
-                    role="menuitem"
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-650 dark:text-gray-300 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
-                  >
-                    <BookMarked className="size-4 shrink-0" />
-                    {isAr ? 'دوراتي المفعّلة' : 'My Courses'}
-                  </Link>
+                  {/* CAS 1 : Menu d'actions filtré pour les ÉTUDIANTS (STUDENT) [5] */}
+                  {role === 'student' && (
+                    <>
+                      <Link
+                        href="/my-courses"
+                        role="menuitem"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-650 dark:text-gray-300 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
+                      >
+                        <BookMarked className="size-4 shrink-0" />
+                        {isAr ? 'دوراتي المفعّلة' : 'My Courses'}
+                      </Link>
 
-                  {/* NOUVEAU : Lien direct de profil bilingue pour modification de données [2] */}
-                  <Link
-                    href="/profile"
-                    role="menuitem"
-                    onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-650 dark:text-gray-300 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
-                  >
-                    <User className="size-4 shrink-0" />
-                    {isAr ? 'الملف الشخصي والبيانات' : 'Edit My Profile'}
-                  </Link>
+                      <Link
+                        href="/profile"
+                        role="menuitem"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-650 dark:text-gray-300 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
+                      >
+                        <User className="size-4 shrink-0" />
+                        {isAr ? 'الملف الشخصي والبيانات' : 'Edit My Profile'}
+                      </Link>
+                    </>
+                  )}
+
+                  {/* CAS 2 : Menu d'actions pour les PROFESSEURS (INSTRUCTOR) [5] */}
+                  {role === 'instructor' && (
+                    <Link
+                      href="/instructor"
+                      role="menuitem"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-650 dark:text-gray-300 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
+                    >
+                      <Grid3X3 className="size-4 shrink-0 text-primary" />
+                      {isAr ? 'لوحة التحكم للمدرب' : 'My Dashboard'}
+                    </Link>
+                  )}
+
+                  {/* CAS 3 : Menu d'actions pour les ADMINISTRATEURS (ADMIN) [5] */}
+                  {role === 'admin' && (
+                    <Link
+                      href="/admin/enrollments"
+                      role="menuitem"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-gray-650 dark:text-gray-300 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
+                    >
+                      <Grid3X3 className="size-4 shrink-0 text-primary" />
+                      {isAr ? 'إدارة نظام المنصة' : 'My Dashboard'}
+                    </Link>
+                  )}
 
                   <div className="border-t border-gray-100 dark:border-gray-800 pt-2 mt-1">
                     <button
@@ -674,7 +703,7 @@ export default function Navbar() {
                       key={cat.id}
                       href={`/courses?category=${encodeURIComponent(cat.slug)}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/40 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold text-gray-650 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/40 hover:bg-primary/5 hover:text-primary transition-colors duration-150"
                     >
                       <CatIcon className="size-4 shrink-0 text-gray-400" />
                       <span className="truncate">{isAr ? cat.nameAr : cat.nameEn}</span>
@@ -710,31 +739,59 @@ export default function Navbar() {
                 </div>
               </div>
 
-              <Link
-                href="/my-courses"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/60 transition-colors duration-150"
-              >
-                <BookMarked className="size-5 shrink-0" />
-                {isAr ? 'دوراتي المفعّلة' : 'My Courses'}
-              </Link>
+              {/* CAS 1 : Menu d'actions filtré pour les ÉTUDIANTS (STUDENT) [5] */}
+              {role === 'student' && (
+                <>
+                  <Link
+                    href="/my-courses"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/60 transition-colors duration-150"
+                  >
+                    <BookMarked className="size-5 shrink-0" />
+                    {isAr ? 'دوراتي المفعّلة' : 'My Courses'}
+                  </Link>
 
-              {/* NOUVEAU : Lien direct bilingue de profil sous mobile [2] */}
-              <Link
-                href="/profile"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-650 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/60 transition-colors duration-150"
-              >
-                <User className="size-5 shrink-0" />
-                {isAr ? 'الملف الشخصي والبيانات' : 'Edit My Profile'}
-              </Link>
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-650 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/60 transition-colors duration-150"
+                  >
+                    <User className="size-5 shrink-0" />
+                    {isAr ? 'الملف الشخصي والبيانات' : 'Edit My Profile'}
+                  </Link>
+                </>
+              )}
+
+              {/* CAS 2 : Menu d'actions pour les PROFESSEURS (INSTRUCTOR) [5] */}
+              {role === 'instructor' && (
+                <Link
+                  href="/instructor"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-650 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/60 transition-colors duration-150"
+                >
+                  <Grid3X3 className="size-5 shrink-0 text-primary" />
+                  {isAr ? 'لوحة التحكم للمدرب' : 'My Dashboard'}
+                </Link>
+              )}
+
+              {/* CAS 3 : Menu d'actions pour les ADMINISTRATEURS (ADMIN) [5] */}
+              {role === 'admin' && (
+                <Link
+                  href="/admin/enrollments"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-gray-650 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900/60 transition-colors duration-150"
+                >
+                  <Grid3X3 className="size-5 shrink-0 text-primary" />
+                  {isAr ? 'إدارة نظام المنصة' : 'My Dashboard'}
+                </Link>
+              )}
 
               <button
                 onClick={() => {
                   logout();
                   setMobileMenuOpen(false);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-error hover:bg-error/10 transition-colors duration-150 cursor-pointer"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold text-error hover:bg-error/10 transition-colors duration-150 cursor-pointer"
               >
                 <LogOut className="size-5 shrink-0" />
                 {isAr ? 'تسجيل الخروج' : 'Logout'}

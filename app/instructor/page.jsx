@@ -8,13 +8,10 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
   BookOpen, Users, Layers, UploadCloud, GraduationCap,
-  ArrowRight, LayoutDashboard
+  ArrowRight, LayoutDashboard, Globe
 } from 'lucide-react';
 import Link from 'next/link';
 
-/* Mêmes tons que le dashboard Admin (STAT_TONES) pour une identité visuelle
-   cohérente entre les deux espaces — plus de dégradés bleu/émeraude/violet
-   ad hoc, on réutilise primary / success / secondary. */
 const STAT_TONES = {
   primary: { bg: 'bg-primary/10', text: 'text-primary' },
   success: { bg: 'bg-success/10', text: 'text-success' },
@@ -61,7 +58,6 @@ export default function InstructorDashboard() {
     );
   }
 
-  // Calcul des statistiques globales pour l'enseignant
   const totalStudents = courses.reduce((acc, c) => acc + (c._count?.enrollments || 0), 0);
   const totalLessons = courses.reduce((acc, c) => {
     const lessonsCount = c.chapters?.reduce((subAcc, chap) => subAcc + (chap.lessons?.length || 0), 0) || 0;
@@ -100,7 +96,7 @@ export default function InstructorDashboard() {
             <span className="text-[10px] font-black uppercase tracking-widest text-primary block mb-1">
               {isAr ? 'منصة الأستاذ والمدرب' : 'Instructor Workspace'}
             </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-gray-950 dark:text-white flex items-center gap-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-gray-955 dark:text-white flex items-center gap-2">
               <LayoutDashboard className="w-6 h-6 text-primary shrink-0" />
               {isAr ? `مرحباً بك، أ. ${user?.fullName || ''}` : `Welcome, Prof. ${user?.fullName || ''}`}
             </h1>
@@ -112,7 +108,7 @@ export default function InstructorDashboard() {
           </div>
         </div>
 
-        {/* Cartes de Statistiques Enseignant — même langage visuel que l'espace Admin */}
+        {/* Cartes de Statistiques Enseignant */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
           {stats.map((stat, i) => {
             const colors = STAT_TONES[stat.tone];
@@ -141,7 +137,7 @@ export default function InstructorDashboard() {
         <div className="space-y-6 pt-4">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-5 bg-primary rounded-full" />
-            <h2 className="text-lg font-black text-gray-950 dark:text-white">
+            <h2 className="text-lg font-black text-gray-955 dark:text-white">
               {isAr ? 'المساقات المسندة إليك' : 'Your Assigned Tracks'}
             </h2>
           </div>
@@ -151,7 +147,7 @@ export default function InstructorDashboard() {
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                 <GraduationCap className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="text-base font-bold text-gray-950 dark:text-white">
+              <h3 className="text-base font-bold text-gray-955 dark:text-white">
                 {isAr ? 'لا توجد مساقات مسندة إليك حالياً' : 'No tracks assigned yet'}
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto mt-2 leading-relaxed">
@@ -172,24 +168,36 @@ export default function InstructorDashboard() {
                   >
                     {/* Infos du cours */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <Badge variant="primary" className="text-[9px] font-black px-2.5 py-0.5">
                           {isAr ? course.category?.nameAr : course.category?.nameEn}
                         </Badge>
-                        <Badge
-                          variant={course.published ? 'success' : 'secondary'}
-                          className="text-[9px] font-bold px-2.5 py-0.5"
-                        >
-                          {course.published ? (isAr ? 'منشور' : 'Active') : (isAr ? 'مسودة' : 'Draft')}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          {/* NOUVEAU : Lien direct de prévisualisation publique pour le formateur */}
+                          <Link href={`/courses/${course.slug}`} target="_blank">
+                            <Badge variant="outline" className="text-[9px] font-bold px-2 py-0.5 border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer">
+                              <Globe className="w-3 h-3 mr-1 inline shrink-0" />
+                              {isAr ? 'الصفحة العامة' : 'View Public'}
+                            </Badge>
+                          </Link>
+                          <Badge
+                            variant={course.published ? 'success' : 'secondary'}
+                            className="text-[9px] font-bold px-2.5 py-0.5"
+                          >
+                            {course.published ? (isAr ? 'منشور' : 'Active') : (isAr ? 'مسودة' : 'Draft')}
+                          </Badge>
+                        </div>
                       </div>
 
-                      <h3 className="text-sm sm:text-base font-black text-gray-950 dark:text-white leading-snug group-hover:text-primary transition-colors line-clamp-2">
-                        {isAr ? course.titleAr : course.titleEn}
-                      </h3>
+                      {/* NOUVEAU : Titre interactif pointant directement vers le programme du cours */}
+                      <Link href={`/instructor/courses/${course.slug}/upload`}>
+                        <h3 className="text-sm sm:text-base font-black text-gray-950 dark:text-white leading-snug hover:text-primary transition-colors line-clamp-2 cursor-pointer">
+                          {isAr ? course.titleAr : course.titleEn}
+                        </h3>
+                      </Link>
 
                       {/* Stats sous forme de puces filaires */}
-                      <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800 pt-3">
+                      <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold text-gray-505 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800 pt-3">
                         <div className="flex items-center gap-1.5">
                           <Layers className="w-3.5 h-3.5 shrink-0" />
                           <span>{nf.format(course.chapters?.length || 0)} {isAr ? 'فصول' : 'chapters'}</span>

@@ -88,6 +88,12 @@ export default function InstructorLayout({ children }) {
       labelEn: 'View Public Site',
       path: '/',
       Icon: Globe
+    },
+     {
+      labelAr: 'دروسي',
+      labelEn: 'my Courses',
+      path: '/instructor/courses',
+      Icon: Globe
     }
   ];
 

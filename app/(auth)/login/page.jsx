@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/Button';
 import ThemeToggle from '@/components/ThemeToggle';
 import Link from 'next/link';
 
-// FORCE DYNAMIC RENDERING : Résout définitivement l'échec de pré-rendu au build sur Vercel
+// FORCE DYNAMIC RENDERING : évite l'échec de pré-rendu statique au build
+// (cette page utilise useSearchParams() ; sans cette directive, Next.js tente
+// quand même de la pré-rendre côté build sur Vercel et le build échoue).
 export const dynamic = 'force-dynamic';
 
 /* -------------------------------------------------------------------------- */
@@ -51,14 +53,6 @@ function IconShieldLock(props) {
   );
 }
 
-function IconChevronRight(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}
-
 /* -------------------------------------------------------------------------- */
 /* Écrin Visuel d'Authentification (Design Unifié)                            */
 /* -------------------------------------------------------------------------- */
@@ -68,6 +62,7 @@ function AuthShell({ title, subtitle, children, footer }) {
   const isAr = language === 'ar';
   const dir = isAr ? 'rtl' : 'ltr';
 
+  // Traducteur local infaillible pour résoudre le problème d'I18n [1]
   const localT = (en, ar) => (isAr ? ar : en);
 
   const perks = [
@@ -88,8 +83,9 @@ function AuthShell({ title, subtitle, children, footer }) {
   return (
     <div dir={dir} lang={language} className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-300">
       <div className="grid min-h-screen lg:grid-cols-2">
-        {/* Colonne gauche — panneau solid primary-dark */}
+        {/* Colonne gauche — panneau solid primary-dark, sans dégradé */}
         <div className="relative hidden flex-col justify-between bg-primary-dark p-10 text-white lg:flex">
+          {/* Grille quadrillée technique en arrière-plan */}
           <div
             className="absolute inset-0 opacity-10 pointer-events-none animate-drift-grid"
             style={{
@@ -101,7 +97,7 @@ function AuthShell({ title, subtitle, children, footer }) {
 
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary-light/20 blur-[120px] rounded-full pointer-events-none" />
 
-          <Link href="/" className="relative z-10 flex items-center gap-2.5 select-none">
+          <Link href="/" className="relative z-10 flex items-center gap-2.5">
             <span className="flex size-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
               <IconGraduationCap className="size-5" />
             </span>
@@ -184,7 +180,7 @@ function AuthShell({ title, subtitle, children, footer }) {
 /* -------------------------------------------------------------------------- */
 
 function LoginForm() {
-  const { login, loading, user } = useAuth();
+  const { login, loading } = useAuth();
   const { language } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -196,45 +192,48 @@ function LoginForm() {
   const isAr = language === 'ar';
   const redirectPath = searchParams.get("redirect");
 
+  // Traducteur local infaillible [1]
   const localT = (en, ar) => (isAr ? ar : en);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // Éviter les erreurs d'insensibilité à la casse sous PostgreSQL
+    // Éviter les erreurs d'insensibilité à la casse sous PostgreSQL [11]
     const sanitizedEmail = email.trim().toLowerCase();
 
     const result = await login(sanitizedEmail, password);
 
-    // Si la tentative de connexion a réussi [2]
+    // On ne suppose plus la forme exacte de `result` : on considère la connexion réussie si un
+    // signal de succès existe, puis on va chercher le rôle depuis la session
+    // authentifiée côté serveur plutôt que depuis la réponse de login().
     if (result && (result.success || result.role || result.user)) {
       if (redirectPath) {
         router.push(redirectPath);
-      } else {
-        try {
-          // Interroger directement l'API de session sécurisée [5]
-          const meRes = await fetch('/api/auth/me');
-          if (meRes.ok) {
-            const meData = await meRes.json();
-            const loggedUser = meData.user || meData;
-            const userRole = loggedUser?.role?.toUpperCase();
+        return;
+      }
 
-            // Aiguillage précis vers les vraies destinations [5]
-            if (userRole === 'ADMIN') {
-              router.push('/admin/enrollments'); // Admin -> Gestion des inscriptions
-            } else if (userRole === 'INSTRUCTOR') {
-              router.push('/instructor'); // Professeur -> Espace formateur
-            } else {
-              router.push('/'); // Étudiant -> Page d'accueil publique
-            }
+      try {
+        const meRes = await fetch('/api/auth/me');
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          const loggedUser = meData.user || meData;
+          const userRole = loggedUser?.role?.toUpperCase();
+
+          // AIGUILLAGE CONDITIONNEL STRICT PAR RÔLE [5]
+          if (userRole === 'ADMIN') {
+            router.push('/dashboard'); // Admin vers son tableau de bord global
+          } else if (userRole === 'INSTRUCTOR') {
+            router.push('/instructor'); // Professeur/Instructeur vers son espace dédié
           } else {
-            router.push('/'); // Fallback
+            router.push('/my-courses'); // Étudiant standard vers ses cours
           }
-        } catch (err) {
-          console.error(err);
-          router.push('/'); // Fallback de secours
+        } else {
+          router.push('/my-courses'); // Repli sûr si la session n'a pas pu être relue
         }
+      } catch (err) {
+        console.error(err);
+        router.push('/my-courses'); // Repli sûr en cas d'erreur réseau
       }
     } else {
       setError(result?.error || (isAr ? 'خطأ في اسم المستخدم أو كلمة المرور.' : 'Invalid email or password.'));
@@ -271,11 +270,9 @@ function LoginForm() {
             <label htmlFor="password" className="text-xs font-bold text-gray-700 dark:text-gray-300">
               {localT("Password", "كلمة المرور")}
             </label>
-            <Link href="/forgot-password">
-              <button type="button" className="text-[10px] font-bold text-primary hover:underline transition-colors cursor-pointer">
-                {localT("Forgot?", "نسيتها؟")}
-              </button>
-            </Link>
+            <button type="button" className="text-[10px] font-bold text-primary hover:underline transition-colors cursor-pointer">
+              {localT("Forgot?", "نسيتها؟")}
+            </button>
           </div>
           <Input
             id="password"

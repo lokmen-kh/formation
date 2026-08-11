@@ -5,7 +5,7 @@ import { checkAccess } from '@/lib/enrollment/checkAccess';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-// Initialisation du client B2 S3
+// Configuration du client B2 S3
 const b2Client = new S3Client({
   endpoint: `https://${process.env.B2_ENDPOINT}`,
   region: process.env.B2_REGION || 'us-west-004',
@@ -32,10 +32,26 @@ async function videoTokenHandler(request, { params }) {
 
     const courseId = lesson.chapter.courseId;
 
-    // 1. Contrôle de validité de l'inscription étudiante
-    const access = await checkAccess(request.user.userId, courseId);
-    if (!access.hasAccess) {
-      return NextResponse.json({ error: 'Accès interdit : Abonnement inactif ou expiré.' }, { status: 403 });
+    // 1. Contrôle bivalent de validité (Bypass automatique pour le Staff : Admin / Prof du cours) [5]
+    const userRole = request.user.role?.toUpperCase();
+    let hasAccess = false;
+
+    if (userRole === 'ADMIN') {
+      hasAccess = true; // L'administrateur a un droit de regard universel
+    } else if (userRole === 'INSTRUCTOR') {
+      // Le professeur doit être le formateur attitré de ce cours spécifique [5]
+      const course = await db.course.findUnique({ where: { id: courseId } });
+      if (course && course.instructorId === request.user.userId) {
+        hasAccess = true;
+      }
+    } else {
+      // Élève standard : vérification classique de l'inscription CCP approuvée
+      const access = await checkAccess(request.user.userId, courseId);
+      hasAccess = access.hasAccess;
+    }
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Accès interdit : Vous ne possédez pas d’abonnement actif pour ce cours.' }, { status: 403 });
     }
 
     if (!lesson.videoUrl) {
@@ -44,7 +60,7 @@ async function videoTokenHandler(request, { params }) {
 
     let playbackUrl = lesson.videoUrl;
 
-    // Si la vidéo est stockée sur Backblaze B2, nous générons un lien signé sécurisé d'une heure
+    // Si la vidéo est sur Backblaze B2, génération du lien signé d'une heure [2]
     if (lesson.videoUrl.includes(process.env.B2_ENDPOINT)) {
       const urlParts = lesson.videoUrl.split(`${process.env.B2_ENDPOINT}/`);
       if (urlParts.length > 1) {
@@ -55,7 +71,6 @@ async function videoTokenHandler(request, { params }) {
           Key: fileKey,
         });
 
-        // URL signée valable 1 heure (3600 secondes)
         playbackUrl = await getSignedUrl(b2Client, command, { expiresIn: 3600 });
       }
     }
