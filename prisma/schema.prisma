@@ -1,14 +1,61 @@
+datasource db {
+  provider = "postgresql"
+
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --------------------------------------------------------------------------
+// ENUMS
+// --------------------------------------------------------------------------
+
+enum Audience {
+  STUDENT
+  PARENT
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+  INSTRUCTOR
+}
+
+enum PlanType {
+  STANDARD
+  PREMIUM
+}
+
+enum EnrollmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// --------------------------------------------------------------------------
+// MODÈLES
+// --------------------------------------------------------------------------
+
 model User {
   id             String       @id @default(uuid())
   fullName       String
   email          String       @unique
   password       String
+   audience       Audience?
   role           Role         @default(STUDENT)
-
-  phone          String?
-  educationLevel String?
-  birthDate      DateTime?
-  jobStatus      String?
+  
+  // Champs pour le profil de l'étudiant bachelier/professionnel [2]
+  phone          String?      // Numéro de téléphone
+  educationLevel String?      // Niveau d'études actuel (ex: Terminale, Master)
+  birthDate      DateTime?    // Date de naissance
+  jobStatus      String?      // Statut professionnel (ex: 'STUDENT' ou 'EMPLOYEE')
 
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -17,9 +64,21 @@ model User {
   comments       Comment[]
   feedbacks      Feedback[]
 
-  // ---- AJOUT : relation inverse requise par Prisma pour "InstructorCourses" ----
-  coursesAsInstructor Course[] @relation("InstructorCourses")
-  // -------------------------------------------------------------------------
+  // ---- CORRECTIONS : Relations inverses requises par Prisma ----
+  coursesAsInstructor Course[]          @relation("InstructorCourses") // Pour Course.instructor
+  clubBookings        ClubTableBooking[] // Pour ClubTableBooking.representative
+  videoProgresses     VideoProgress[]    // Pour VideoProgress.user
+  // --------------------------------------------------------------
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  nameAr    String
+  nameEn    String
+  slug      String   @unique
+  courses   Course[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Course {
@@ -34,10 +93,10 @@ model Course {
   imageUrl           String?
   videoUrl           String?
 
-  // ---- FIX : "?" ajouté sur les deux lignes = professeur optionnel ----
+  // ---- FIX : Professeur 100% optionnel (String? et User? avec onDelete: SetNull) [5] ----
   instructorId       String?
-  instructor         User?        @relation("InstructorCourses", fields: [instructorId], references: [id])
-  // ----------------------------------------------------------------
+  instructor         User?        @relation("InstructorCourses", fields: [instructorId], references: [id], onDelete: SetNull)
+  // ---------------------------------------------------------------------------------------
 
   categoryId         String?
   category           Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -47,5 +106,122 @@ model Course {
   chapters           Chapter[]
   enrollments        Enrollment[]
   comments           Comment[]
-  offers             Offer[]
+  offers             Offer[]      // Relation dynamique de plans d'abonnements [2]
+}
+
+model Chapter {
+  id        String   @id @default(uuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  titleAr   String
+  titleEn   String
+  order     Int
+  lessons   Lesson[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Lesson {
+  id               String          @id @default(uuid())
+  chapterId        String
+  chapter          Chapter         @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  titleAr          String
+  titleEn          String
+
+  videoUrl         String?
+  videoLibraryId   String?
+
+  documentUrl      String?   // Lien de ressource PDF/Zip secondaire [2]
+
+  writtenContentAr String?
+  writtenContentEn String?
+
+  order            Int
+
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  videoProgresses  VideoProgress[]
+}
+
+model VideoProgress {
+  id        String   @id @default(uuid())
+  userId     String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  progress  Float    @default(0.0)
+  completed Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+model ClubTableBooking {
+  id               String        @id @default(uuid())
+  clubNameAr       String
+  clubNameEn       String
+  representativeId String
+  representative   User          @relation(fields: [representativeId], references: [id], onDelete: Cascade)
+  tableNumber      Int
+  status           BookingStatus @default(PENDING)
+  eventDate        DateTime
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  content   String
+  rating    Int      @default(5)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Offer {
+  id             String       @id @default(uuid())
+  courseId       String
+  nameAr         String       // Nom bilingue de la formule (arabe)
+  nameEn         String       // Nom bilingue de la formule (anglais)
+  durationMonths Int          @default(1) // Durée de l'accès en mois
+  price          Float        // Prix standard réel de l'offre
+  oldPrice       Float?       // Ancien prix (pour prix barré/remise)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrollments    Enrollment[]
+}
+
+model Enrollment {
+  id          String           @id @default(uuid())
+  userId      String
+  courseId    String
+  planType    PlanType         @default(STANDARD) // Rétrocompatibilité Enum
+  status      EnrollmentStatus @default(PENDING)
+  receiptUrl  String?          // Reçu CCP téléversé
+  expiresAt   DateTime?        // Date d'expiration calculée à l'approbation
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  // Relation avec l'offre d'abonnement dynamique [2]
+  offerId     String?          
+  offer       Offer?           @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
 }

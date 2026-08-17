@@ -44,9 +44,7 @@ import {
 } from 'lucide-react';
 
 /* -------------------------------------------------------------------------- */
-/* Tokens statiques pour les cartes de stats — Tailwind ne peut pas résoudre  */
-/* des classes construites dynamiquement (`bg-${color}-500`) : elles ne sont  */
-/* jamais générées au build. On mappe donc chaque stat à des classes fixes.   */
+/* Tokens statiques pour les cartes de stats                                  */
 /* -------------------------------------------------------------------------- */
 const STAT_TONES = {
   primary: { bg: 'bg-primary/10', text: 'text-primary' },
@@ -56,12 +54,12 @@ const STAT_TONES = {
 };
 
 /* -------------------------------------------------------------------------- */
-/* Champs réutilisables — libellé discret au-dessus + style "ligne de filtre" */
+/* Champs réutilisables — style "ligne de filtre"                             */
 /* -------------------------------------------------------------------------- */
 
 function FieldLabel({ icon: Icon, children, required }) {
   return (
-    <label className="flex items-center gap-1.5 text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+    <label className="flex items-center gap-1.5 text-[11px] font-bold text-gray-550 dark:text-gray-400 uppercase tracking-wide mb-1.5">
       {Icon && <Icon className="w-3 h-3 text-primary shrink-0" />}
       {children} {required && <span className="text-error">*</span>}
     </label>
@@ -76,7 +74,7 @@ function FieldSelect({ icon: Icon, value, onChange, required, placeholder, child
         value={value}
         required={required}
         onChange={onChange}
-        className={`w-full h-11 ${Icon ? 'pl-10' : 'pl-4'} pr-9 text-sm border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none transition-all duration-200 text-gray-900 dark:text-white cursor-pointer appearance-none`}
+        className={`w-full h-11 ${Icon ? 'pl-10' : 'pl-4'} pr-9 text-sm border-2 border-slate-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none transition-all duration-200 text-gray-900 dark:text-white cursor-pointer appearance-none`}
       >
         {placeholder && <option value="">{placeholder}</option>}
         {children}
@@ -92,7 +90,7 @@ function FieldSelect({ icon: Icon, value, onChange, required, placeholder, child
 
 function TabBar({ tabs, active, onChange, isAr }) {
   return (
-    <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800/50 rounded-xl border border-gray-200/60 dark:border-gray-700/60 overflow-x-auto no-scrollbar">
+    <div className="flex gap-1 p-1 bg-gray-100 dark:bg-gray-800/50 rounded-xl border border-slate-200/50 dark:border-gray-700/60 overflow-x-auto no-scrollbar">
       {tabs.map((tab) => {
         const isActive = active === tab.id;
         return (
@@ -103,7 +101,7 @@ function TabBar({ tabs, active, onChange, isAr }) {
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-200 shrink-0 ${
               isActive
                 ? 'bg-white dark:bg-gray-900 text-primary shadow-sm'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                : 'text-gray-550 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
             <tab.icon className="w-3.5 h-3.5 shrink-0" />
@@ -137,6 +135,10 @@ export default function AdminCoursesPage() {
   const [editingCourse, setEditingCourse] = useState(null);
   const [activeTab, setActiveTab] = useState('general');
 
+  // NOUVEAU : États pour prévisualiser la vidéo d'introduction de manière sécurisée
+  const [previewVideoUrl, setPreviewVideoUrl] = useState('');
+  const [fetchingVideoId, setFetchingVideoId] = useState(null);
+
   const [titleAr, setTitleAr] = useState('');
   const [titleEn, setTitleEn] = useState('');
   const [slug, setSlug] = useState('');
@@ -151,7 +153,7 @@ export default function AdminCoursesPage() {
   const [imagePreview, setImagePreview] = useState('');
   const [imageDragOver, setImageDragOver] = useState(false);
 
-  // Vidéo d'introduction — distincte des vidéos de leçons gérées ailleurs
+  // Vidéo d'introduction
   const [introVideoFile, setIntroVideoFile] = useState(null);
   const [introVideoPreview, setIntroVideoPreview] = useState('');
   const [introVideoDragOver, setIntroVideoDragOver] = useState(false);
@@ -188,33 +190,12 @@ export default function AdminCoursesPage() {
   const fetchInstructorsAndCategories = async () => {
     try {
       const resUsers = await fetch('/api/admin/users');
-      if (!resUsers.ok) {
-        console.error('[fetchInstructorsAndCategories] /api/admin/users a répondu', resUsers.status);
-      }
       const dataUsers = await parseResponseJson(resUsers);
-console.log('Data received from /api/admin/users:', dataUsers);
-      // La réponse peut prendre plusieurs formes selon l'API : un tableau brut,
-      // { users: [...] }, ou { data: [...] }. On ne suppose plus une seule forme,
-      // pour éviter que la liste reste vide silencieusement si le format diffère.
-      const usersList = Array.isArray(dataUsers)
-        ? dataUsers
-        : (dataUsers.instructors ||  []);
-        console.log('Parsed users list:', usersList);
-
-      if (usersList.length === 0) {
-        console.warn('[fetchInstructorsAndCategories] Aucun utilisateur reçu depuis /api/admin/users — vérifie la forme de la réponse ou l’authentification admin.');
-      }
-
-      // Comparaison insensible à la casse : évite qu'un rôle stocké en
-      // 'instructor'/'Instructor' passe à travers un filtre strict 'INSTRUCTOR'.
+      const usersList = Array.isArray(dataUsers) ? dataUsers : (dataUsers.instructors || []);
+      
       const filtered = usersList.filter(
         (u) => ['INSTRUCTOR', 'ADMIN'].includes((u.role || '').toUpperCase())
       );
-console.log('Filtered instructors/admins:', filtered);
-      if (usersList.length > 0 && filtered.length === 0) {
-        console.warn('[fetchInstructorsAndCategories] Des utilisateurs ont été reçus mais aucun avec le rôle INSTRUCTOR/ADMIN. Rôles reçus :', [...new Set(usersList.map(u => u.role))]);
-      }
-
       setInstructors(filtered);
 
       const resCats = await fetch('/api/admin/categories');
@@ -230,6 +211,26 @@ console.log('Filtered instructors/admins:', filtered);
     fetchCourses();
     fetchInstructorsAndCategories();
   }, []);
+
+  // Générer une URL signée temporaire pour prévisualiser la vidéo d'intro [2]
+  const handlePreviewIntroVideo = async (courseId, fallbackUrl) => {
+    setFetchingVideoId(courseId);
+    try {
+      const res = await fetch(`/api/public/courses/${courseId}/video-token`);
+      const data = await res.json();
+      
+      if (res.ok && data.playbackUrl) {
+        setPreviewVideoUrl(data.playbackUrl);
+      } else {
+        setPreviewVideoUrl(fallbackUrl);
+      }
+    } catch (err) {
+      console.warn("Échec d'obtention de l'URL signée, utilisation du lien brut :", err);
+      setPreviewVideoUrl(fallbackUrl);
+    } finally {
+      setFetchingVideoId(null);
+    }
+  };
 
   const addOfferField = () => {
     setOffers([...offers, { nameAr: '', nameEn: '', durationMonths: 1, price: '', oldPrice: '' }]);
@@ -314,7 +315,7 @@ console.log('Filtered instructors/admins:', filtered);
     setPublished(course.published || false);
     setImagePreview(course.imageUrl || '');
     setImageFile(null);
-    setIntroVideoPreview(course.introVideoUrl || '');
+    setIntroVideoPreview(course.videoUrl || ''); // CORRECTION : Alignement sur le champ videoUrl
     setIntroVideoFile(null);
 
     if (course.offers && course.offers.length > 0) {
@@ -374,11 +375,12 @@ console.log('Filtered instructors/admins:', filtered);
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f9fb] dark:bg-gray-950 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#f8f9fb] dark:bg-[#090b11] p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header — solid primary-dark, sans dégradé */}
-        <div className="relative overflow-hidden rounded-3xl bg-primary-dark p-8 border border-white/10 shadow-2xl shadow-slate-900/10">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
+        
+        {/* Header */}
+        <div className="relative overflow-hidden rounded-3xl bg-primary-dark p-8 border border-white/10 shadow-xl">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex items-center gap-4">
@@ -386,7 +388,7 @@ console.log('Filtered instructors/admins:', filtered);
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-sm">
+                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
                   {isAr ? 'إدارة المناهج والمساقات' : 'Course Management'}
                 </h1>
                 <p className="text-sm text-white/70 flex items-center gap-2">
@@ -397,7 +399,7 @@ console.log('Filtered instructors/admins:', filtered);
             </div>
             <Button
               onClick={() => { resetForm(); setIsModalOpen(true); }}
-              className="gap-2 bg-white text-primary hover:bg-white/90 shadow-lg transition-all duration-300 hover:-translate-y-0.5 group font-bold rounded-xl px-6 py-3"
+              className="gap-2 bg-white text-primary hover:bg-white/90 shadow-lg transition-all duration-300 hover:-translate-y-0.5 group font-bold rounded-xl px-6 py-3 border-0 cursor-pointer"
             >
               <Plus className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
               {isAr ? 'إضافة مساق جديد' : 'Add Course'}
@@ -405,7 +407,7 @@ console.log('Filtered instructors/admins:', filtered);
           </div>
         </div>
 
-        {/* Stats Cards — classes statiques (voir STAT_TONES) */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { icon: BookOpen, label: isAr ? 'إجمالي المساقات' : 'Total Courses', value: courses.length, tone: 'primary' },
@@ -417,7 +419,7 @@ console.log('Filtered instructors/admins:', filtered);
             return (
               <div
                 key={index}
-                className="group bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 shadow-elegant hover:shadow-lg hover:border-primary/30 transition-all duration-300 hover:-translate-y-1"
+                className="group bg-white dark:bg-gray-900 p-6 rounded-2xl border border-slate-200/50 dark:border-gray-800/60 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 hover:-translate-y-1"
               >
                 <div className="flex items-center gap-4">
                   <div className={`p-3 rounded-xl ${colors.bg} group-hover:scale-110 transition-transform duration-300`}>
@@ -425,7 +427,7 @@ console.log('Filtered instructors/admins:', filtered);
                   </div>
                   <div>
                     <p className="text-2xl font-black text-gray-900 dark:text-white">{stat.value}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">{stat.label}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{stat.label}</p>
                   </div>
                 </div>
               </div>
@@ -434,7 +436,7 @@ console.log('Filtered instructors/admins:', filtered);
         </div>
 
         {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 shadow-elegant">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-white dark:bg-gray-900 p-4 rounded-2xl border border-slate-200/50 dark:border-gray-800/60 shadow-sm">
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -442,29 +444,29 @@ console.log('Filtered instructors/admins:', filtered);
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={isAr ? 'ابحث عن مساق...' : 'Search courses...'}
-              className="w-full text-sm bg-gray-50 dark:bg-gray-950/50 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:bg-white dark:focus:bg-gray-900 rounded-xl py-2.5 pl-10 pr-4 outline-none transition-all duration-200 text-gray-900 dark:text-white placeholder:text-gray-400"
+              className="w-full text-sm bg-gray-50 dark:bg-gray-955/50 border-2 border-slate-200 dark:border-gray-800 focus:border-primary focus:bg-white dark:focus:bg-gray-900 rounded-xl py-2.5 pl-10 pr-4 outline-none transition-all duration-200 text-gray-900 dark:text-white placeholder:text-gray-400"
             />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="text-sm bg-gray-50 dark:bg-gray-950/50 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-xl px-3 py-2.5 outline-none transition-all duration-200 text-gray-900 dark:text-white cursor-pointer"
+              className="text-sm bg-slate-50 dark:bg-gray-955/50 border-2 border-slate-200 dark:border-gray-800 focus:border-primary rounded-xl px-3 py-2.5 outline-none transition-all duration-200 text-gray-900 dark:text-white cursor-pointer"
             >
               <option value="all">{isAr ? 'الكل' : 'All'}</option>
               <option value="published">{isAr ? 'منشور' : 'Published'}</option>
               <option value="draft">{isAr ? 'مسودة' : 'Draft'}</option>
             </select>
-            <div className="flex gap-1 p-1 bg-gray-50 dark:bg-gray-950/50 rounded-xl border border-gray-200 dark:border-gray-800">
+            <div className="flex gap-1 p-1 bg-slate-50 dark:bg-gray-950/50 rounded-xl border border-slate-200 dark:border-gray-800">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition-all duration-200 ${viewMode === 'grid' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                className={`p-2 rounded-lg transition-all duration-200 cursor-pointer ${viewMode === 'grid' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
               >
                 <Grid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-all duration-200 ${viewMode === 'list' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                className={`p-2 rounded-lg transition-all duration-200 cursor-pointer ${viewMode === 'list' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
@@ -474,14 +476,14 @@ console.log('Filtered instructors/admins:', filtered);
 
         {/* Grid/List View */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/60 dark:border-gray-800/60 shadow-elegant">
+          <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/50 dark:border-gray-800/60 shadow-sm">
             <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
               {isAr ? 'جاري تحميل المساقات...' : 'Loading courses...'}
             </p>
           </div>
         ) : filteredCourses.length === 0 ? (
-          <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800 p-16 text-center shadow-elegant">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-dashed border-slate-200 dark:border-gray-800 p-16 text-center shadow-sm">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <BookOpen className="w-8 h-8 text-primary" />
             </div>
@@ -497,12 +499,12 @@ console.log('Filtered instructors/admins:', filtered);
             {filteredCourses.map(course => (
               <div
                 key={course.id}
-                className={`group bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200/60 dark:border-gray-800/60 shadow-elegant hover:shadow-lg hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 overflow-hidden ${
+                className={`group bg-white dark:bg-gray-900 p-6 rounded-2xl border border-slate-200/50 dark:border-gray-800/60 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 overflow-hidden ${
                   viewMode === 'list' ? 'flex flex-col sm:flex-row gap-6' : ''
                 }`}
               >
                 {viewMode === 'list' && (
-                  <div className="w-full sm:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-primary/10">
+                  <div className="w-full sm:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-primary/10 border border-slate-200/30 dark:border-gray-800/30">
                     {course.imageUrl ? (
                       <img src={course.imageUrl} alt={course.titleEn} className="w-full h-full object-cover" />
                     ) : (
@@ -539,11 +541,21 @@ console.log('Filtered instructors/admins:', filtered);
                             {course.offers.length} {isAr ? 'عروض' : 'Offers'}
                           </Badge>
                         )}
-                        {course.introVideoUrl && (
-                          <Badge variant="outline" className="gap-1.5 px-3 py-1 border-primary/20 text-primary">
-                            <PlayCircle className="w-3 h-3" />
-                            {isAr ? 'فيديو تعريفي' : 'Intro video'}
-                          </Badge>
+                        
+                        {/* INTERACTIF : Clic sécurisé par token signé pour visionner l'intro [videoUrl] */}
+                        {course.videoUrl && (
+                          <button
+                            onClick={() => handlePreviewIntroVideo(course.id, course.videoUrl)}
+                            disabled={fetchingVideoId === course.id}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/20 text-primary bg-primary/5 hover:bg-primary/10 transition-all duration-200 text-[9px] font-bold cursor-pointer"
+                          >
+                            {fetchingVideoId === course.id ? (
+                              <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                            ) : (
+                              <PlayCircle className="w-3.5 h-3.5 text-primary animate-pulse" />
+                            )}
+                            {isAr ? 'الفيديو التعريفي' : 'Intro Video'}
+                          </button>
                         )}
                       </div>
                     </div>
@@ -570,11 +582,11 @@ console.log('Filtered instructors/admins:', filtered);
                     </p>
                   )}
 
-                  <div className={`flex items-center justify-between pt-3 border-t border-gray-200/50 dark:border-gray-800/50 text-xs ${
+                  <div className={`flex items-center justify-between pt-3 border-t border-slate-100 dark:border-gray-800/80 text-xs ${
                     viewMode === 'list' ? 'mt-3' : 'mt-2'
                   }`}>
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center gap-1.5 text-gray-400 dark:text-gray-500">
                         <User className="w-3.5 h-3.5" />
                         <span className="truncate max-w-[100px]">{course.instructor?.fullName || (isAr ? 'لا يوجد' : 'None')}</span>
                       </div>
@@ -584,7 +596,7 @@ console.log('Filtered instructors/admins:', filtered);
                         <DollarSign className="w-3 h-3" />
                         {course.offers?.[0] ? course.offers[0].price : 0} DZD
                       </span>
-                      <span className="inline-flex items-center gap-1 font-bold text-gray-700 dark:text-gray-300">
+                      <span className="inline-flex items-center gap-1 font-bold text-gray-450 dark:text-gray-505">
                         <Users className="w-3.5 h-3.5 text-primary" />
                         {course._count?.enrollments || 0}
                       </span>
@@ -597,7 +609,7 @@ console.log('Filtered instructors/admins:', filtered);
         )}
 
         {/* ==================================================================== */}
-        {/* MODAL — Formulaire à onglets : Général / Contenu / Offres / Vidéo    */}
+        {/* MODAL — Formulaire à onglexts : Général / Contenu / Offres / Vidéo   */}
         {/* ==================================================================== */}
         <Modal
           isOpen={isModalOpen}
@@ -621,7 +633,7 @@ console.log('Filtered instructors/admins:', filtered);
               <button
                 type="button"
                 onClick={resetForm}
-                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-primary transition-colors shrink-0"
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-primary transition-colors shrink-0 cursor-pointer"
               >
                 <Eraser className="w-3.5 h-3.5" />
                 {isAr ? 'إعادة تعيين' : 'Clear'}
@@ -633,7 +645,7 @@ console.log('Filtered instructors/admins:', filtered);
 
             <TabBar tabs={TABS} active={activeTab} onChange={setActiveTab} isAr={isAr} />
 
-            <div className="max-h-[60vh] overflow-y-auto px-1 py-1 space-y-4">
+            <div className="max-h-[60vh] overflow-y-auto px-1 py-1 space-y-4 no-scrollbar">
 
               {/* ---------------------------------------------------------- */}
               {/* ONGLET 1 — Informations générales                          */}
@@ -648,7 +660,7 @@ console.log('Filtered instructors/admins:', filtered);
                         value={titleAr}
                         onChange={e => setTitleAr(e.target.value)}
                         placeholder={isAr ? 'مثال: أساسيات البرمجة' : 'e.g. Introduction to Programming'}
-                        className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
+                        className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-slate-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
                         dir="rtl"
                       />
                     </div>
@@ -659,7 +671,7 @@ console.log('Filtered instructors/admins:', filtered);
                         value={titleEn}
                         onChange={e => setTitleEn(e.target.value)}
                         placeholder="e.g. Introduction to Programming"
-                        className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
+                        className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-slate-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm"
                       />
                     </div>
                   </div>
@@ -671,10 +683,10 @@ console.log('Filtered instructors/admins:', filtered);
                       value={slug}
                       onChange={e => setSlug(e.target.value)}
                       placeholder="introduction-to-programming"
-                      className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm font-mono"
+                      className="w-full h-11 bg-white dark:bg-gray-950 border-2 border-slate-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl px-4 text-sm font-mono"
                     />
                     <p className="text-[10px] text-gray-400 mt-1.5">
-                      {isAr ? 'يُستخدم في رابط المساق: /courses/your-slug' : 'Used in the course URL: /courses/your-slug'}
+                      {isAr ? 'يُسخلف في رابط المساق: /courses/your-slug' : 'Used in the course URL: /courses/your-slug'}
                     </p>
                   </div>
 
@@ -710,7 +722,7 @@ console.log('Filtered instructors/admins:', filtered);
                         ))}
                       </FieldSelect>
                       {instructors.length === 0 && (
-                        <p className="text-[10px] text-warning-dark dark:text-warning mt-1.5">
+                        <p className="text-[10px] text-warning-dark dark:text-warning mt-1.5 font-semibold">
                           {isAr
                             ? 'لم يتم العثور على أي مستخدم بدور "مدرب" أو "مدير". تحقق من صفحة إدارة المستخدمين.'
                             : 'No user with role "Instructor" or "Admin" was found. Check the Users management page.'}
@@ -734,7 +746,7 @@ console.log('Filtered instructors/admins:', filtered);
                         value={descriptionAr}
                         onChange={e => setDescriptionAr(e.target.value)}
                         dir="rtl"
-                        className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                        className="w-full p-4 border-2 border-slate-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-955 outline-none resize-none transition-all duration-200 text-sm font-semibold"
                         rows={4}
                         placeholder={isAr ? 'وصف موجز وجذاب للمساق...' : 'Short, engaging course description...'}
                       />
@@ -745,7 +757,7 @@ console.log('Filtered instructors/admins:', filtered);
                         required
                         value={descriptionEn}
                         onChange={e => setDescriptionEn(e.target.value)}
-                        className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                        className="w-full p-4 border-2 border-slate-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-955 outline-none resize-none transition-all duration-200 text-sm font-semibold"
                         rows={4}
                         placeholder="Short, engaging course description..."
                       />
@@ -760,7 +772,7 @@ console.log('Filtered instructors/admins:', filtered);
                         value={whatYouWillLearnAr}
                         onChange={e => setWhatYouWillLearnAr(e.target.value)}
                         dir="rtl"
-                        className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                        className="w-full p-4 border-2 border-slate-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-955 outline-none resize-none transition-all duration-200 text-sm font-semibold"
                         rows={4}
                         placeholder={isAr ? 'نقطة لكل سطر تفيد الطالب...' : 'One outcome per line...'}
                       />
@@ -771,7 +783,7 @@ console.log('Filtered instructors/admins:', filtered);
                         required
                         value={whatYouWillLearnEn}
                         onChange={e => setWhatYouWillLearnEn(e.target.value)}
-                        className="w-full p-4 border-2 border-gray-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-950 outline-none resize-none transition-all duration-200 text-sm"
+                        className="w-full p-4 border-2 border-slate-200 dark:border-gray-800 focus:border-primary focus:ring-2 focus:ring-primary/10 rounded-xl bg-white dark:bg-gray-955 outline-none resize-none transition-all duration-200 text-sm font-semibold"
                         rows={4}
                         placeholder="One outcome per line..."
                       />
@@ -792,7 +804,7 @@ console.log('Filtered instructors/admins:', filtered);
                       <button
                         type="button"
                         onClick={addOfferField}
-                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-primary hover:underline"
+                        className="inline-flex items-center gap-1.5 text-[11px] font-black text-primary hover:underline cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         {isAr ? 'إضافة عرض' : 'Add offer'}
@@ -807,23 +819,23 @@ console.log('Filtered instructors/admins:', filtered);
                           <div
                             key={index}
                             className={`rounded-xl border-2 transition-all duration-200 overflow-hidden ${
-                              isExpanded ? 'border-primary/40' : 'border-gray-200 dark:border-gray-800'
+                              isExpanded ? 'border-primary/40' : 'border-slate-200 dark:border-gray-800'
                             }`}
                           >
                             <button
                               type="button"
                               onClick={() => setExpandedOfferIndex(isExpanded ? null : index)}
-                              className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-950 text-left"
+                              className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-gray-955 text-left"
                             >
                               <span className="flex items-center gap-2 min-w-0">
                                 <span className="inline-flex items-center justify-center size-5 rounded-full bg-primary/10 text-primary text-[10px] font-black shrink-0">
                                   {index + 1}
                                 </span>
-                                <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
+                                <span className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">
                                   {summaryLabel}
                                 </span>
                                 {offer.price && (
-                                  <span className="text-xs font-bold text-primary shrink-0">{offer.price} DZD</span>
+                                  <span className="text-xs font-black text-primary shrink-0">{offer.price} DZD</span>
                                 )}
                               </span>
                               <span className="flex items-center gap-1 shrink-0">
@@ -842,7 +854,7 @@ console.log('Filtered instructors/admins:', filtered);
                             </button>
 
                             {isExpanded && (
-                              <div className="p-4 pt-1 bg-gray-50/60 dark:bg-gray-950/40 border-t border-gray-100 dark:border-gray-800 space-y-3">
+                              <div className="p-4 pt-1 bg-gray-50/60 dark:bg-gray-955/40 border-t border-slate-100 dark:border-gray-800 space-y-3">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   <div>
                                     <FieldLabel>{isAr ? 'اسم العرض (عربي)' : 'Offer Name (Arabic)'}</FieldLabel>
@@ -852,7 +864,7 @@ console.log('Filtered instructors/admins:', filtered);
                                       onChange={e => handleOfferChange(index, 'nameAr', e.target.value)}
                                       placeholder={isAr ? 'مثال: باقة شهرية' : 'e.g. باقة شهرية'}
                                       dir="rtl"
-                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-slate-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
                                     />
                                   </div>
                                   <div>
@@ -862,7 +874,7 @@ console.log('Filtered instructors/admins:', filtered);
                                       value={offer.nameEn}
                                       onChange={e => handleOfferChange(index, 'nameEn', e.target.value)}
                                       placeholder="e.g. Monthly Plan"
-                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-slate-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
                                     />
                                   </div>
                                 </div>
@@ -876,7 +888,7 @@ console.log('Filtered instructors/admins:', filtered);
                                       value={offer.durationMonths}
                                       onChange={e => handleOfferChange(index, 'durationMonths', e.target.value)}
                                       placeholder="1"
-                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                      className="w-full h-10 bg-white dark:bg-gray-955 border-2 border-slate-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm font-semibold"
                                     />
                                   </div>
                                   <div>
@@ -888,7 +900,7 @@ console.log('Filtered instructors/admins:', filtered);
                                       value={offer.price}
                                       onChange={e => handleOfferChange(index, 'price', e.target.value)}
                                       placeholder="2500"
-                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                      className="w-full h-10 bg-white dark:bg-gray-955 border-2 border-slate-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm font-semibold"
                                     />
                                   </div>
                                   <div>
@@ -899,7 +911,7 @@ console.log('Filtered instructors/admins:', filtered);
                                       value={offer.oldPrice}
                                       onChange={e => handleOfferChange(index, 'oldPrice', e.target.value)}
                                       placeholder={isAr ? 'اختياري' : 'Optional'}
-                                      className="w-full h-10 bg-white dark:bg-gray-950 border-2 border-gray-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm"
+                                      className="w-full h-10 bg-white dark:bg-gray-955 border-2 border-slate-200 dark:border-gray-800 focus:border-primary rounded-lg px-3 text-sm font-semibold"
                                     />
                                   </div>
                                 </div>
@@ -918,7 +930,7 @@ console.log('Filtered instructors/admins:', filtered);
                       className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 ${
                         imageDragOver
                           ? 'border-primary bg-primary/5'
-                          : 'border-gray-300 dark:border-gray-700 hover:border-primary/50'
+                          : 'border-slate-200 dark:border-gray-800 hover:border-primary/50'
                       }`}
                       onDragOver={(e) => { e.preventDefault(); setImageDragOver(true); }}
                       onDragLeave={() => setImageDragOver(false)}
@@ -934,7 +946,7 @@ console.log('Filtered instructors/admins:', filtered);
                           <button
                             type="button"
                             onClick={() => { setImageFile(null); setImagePreview(''); }}
-                            className="absolute -top-2 -right-2 p-1 rounded-full bg-error text-white hover:bg-error/90 transition-colors"
+                            className="absolute -top-2 -right-2 p-1 rounded-full bg-error text-white hover:bg-error/90 transition-colors cursor-pointer"
                           >
                             <XCircle className="w-4 h-4" />
                           </button>
@@ -942,10 +954,10 @@ console.log('Filtered instructors/admins:', filtered);
                       ) : (
                         <div className="space-y-2.5">
                           <Upload className="w-8 h-8 mx-auto text-gray-400" />
-                          <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                          <p className="text-xs font-bold text-gray-400 dark:text-gray-500">
                             {isAr ? 'اسحب وأفلت الصورة هنا، أو' : 'Drag and drop, or'}
                           </p>
-                          <label className="inline-block px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 cursor-pointer transition-colors shadow-sm shadow-primary/25">
+                          <label className="inline-block px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/95 cursor-pointer transition-colors shadow-sm shadow-primary/25 border-0">
                             {isAr ? 'اختر صورة' : 'Choose Image'}
                             <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} className="hidden" />
                           </label>
@@ -969,7 +981,7 @@ console.log('Filtered instructors/admins:', filtered);
                       className={`w-full flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 transition-all duration-200 text-sm font-semibold cursor-pointer ${
                         published
                           ? 'bg-primary/5 border-primary/40 text-primary'
-                          : 'bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800 text-gray-500 dark:text-gray-400'
+                          : 'bg-white dark:bg-gray-950 border-slate-200 dark:border-gray-800 text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {published ? <Eye className="w-4 h-4 shrink-0" /> : <EyeOff className="w-4 h-4 shrink-0" />}
@@ -982,13 +994,13 @@ console.log('Filtered instructors/admins:', filtered);
               )}
 
               {/* ---------------------------------------------------------- */}
-              {/* ONGLET 4 — Vidéo d'introduction (nouveau)                   */}
+              {/* ONGLET 4 — Vidéo d'introduction                             */}
               {/* ---------------------------------------------------------- */}
               {activeTab === 'video' && (
                 <div className="space-y-4 animate-fade-in">
                   <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-primary/5 border border-primary/15">
                     <Video className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed">
+                    <p className="text-xs text-gray-655 dark:text-gray-400 leading-relaxed font-semibold">
                       {isAr
                         ? 'فيديو قصير تعريفي يظهر في صفحة المساق قبل الاشتراك، لتحفيز الطلاب على التسجيل. مختلف عن فيديوهات الدروس التي تُدار من صفحة "إدارة المحتوى".'
                         : "A short teaser video shown on the course page before enrollment, to help convince students to sign up. This is separate from lesson videos, which are managed on the course's content page."}
@@ -1001,7 +1013,7 @@ console.log('Filtered instructors/admins:', filtered);
                       className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
                         introVideoDragOver
                           ? 'border-primary bg-primary/5'
-                          : 'border-gray-300 dark:border-gray-700 hover:border-primary/50'
+                          : 'border-slate-200 dark:border-gray-800 hover:border-primary/50'
                       }`}
                       onDragOver={(e) => { e.preventDefault(); setIntroVideoDragOver(true); }}
                       onDragLeave={() => setIntroVideoDragOver(false)}
@@ -1025,21 +1037,21 @@ console.log('Filtered instructors/admins:', filtered);
                           <button
                             type="button"
                             onClick={() => { setIntroVideoFile(null); setIntroVideoPreview(''); }}
-                            className="absolute -top-2 -right-2 p-1 rounded-full bg-error text-white hover:bg-error/90 transition-colors"
+                            className="absolute -top-2 -right-2 p-1 rounded-full bg-error text-white hover:bg-error/90 transition-colors cursor-pointer"
                           >
                             <XCircle className="w-4 h-4" />
                           </button>
                         </div>
                       ) : (
                         <div className="space-y-3">
-                          <PlayCircle className="w-10 h-10 mx-auto text-gray-400" />
+                          <PlayCircle className="w-10 h-10 mx-auto text-gray-400 animate-pulse" />
                           <div>
-                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                            <p className="text-sm font-bold text-gray-400 dark:text-gray-500">
                               {isAr ? 'اسحب وأفلت الفيديو هنا' : 'Drag and drop video here'}
                             </p>
                             <p className="text-xs text-gray-400 mt-1">{isAr ? 'أو' : 'or'}</p>
                           </div>
-                          <label className="inline-block px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/90 cursor-pointer transition-colors shadow-sm shadow-primary/25">
+                          <label className="inline-block px-4 py-2 text-xs font-bold rounded-xl bg-primary text-white hover:bg-primary/95 cursor-pointer transition-colors shadow-sm shadow-primary/25 border-0">
                             {isAr ? 'اختر فيديو' : 'Choose Video'}
                             <input
                               type="file"
@@ -1063,7 +1075,7 @@ console.log('Filtered instructors/admins:', filtered);
                         {introVideoFile.name}
                       </p>
                     )}
-                    <p className="text-[10px] text-gray-400 mt-1.5">
+                    <p className="text-[10px] text-gray-400 mt-1.5 font-semibold">
                       {isAr ? 'اختياري — يمكن إضافته أو تعديله لاحقاً في أي وقت.' : 'Optional — can be added or changed later at any time.'}
                     </p>
                   </div>
@@ -1071,13 +1083,13 @@ console.log('Filtered instructors/admins:', filtered);
               )}
             </div>
 
-            {/* Actions finales — toujours visibles, quel que soit l'onglet actif */}
-            <div className="flex flex-col gap-2 pt-2 pb-1 border-t border-gray-200 dark:border-gray-800 mt-2">
+            {/* Actions finales */}
+            <div className="flex flex-col gap-2 pt-2 pb-1 border-t border-slate-200 dark:border-gray-800 mt-2">
               <div className="pt-3">
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="w-full h-12 gap-2 rounded-xl bg-primary-dark hover:bg-primary-dark/90 transition-all duration-300 text-white font-bold text-sm"
+                  className="w-full h-12 gap-2 rounded-xl bg-primary hover:bg-primary/95 transition-all duration-300 text-white font-extrabold text-sm border-0 shadow-md shadow-primary/20"
                 >
                   {submitting ? (
                     <>
@@ -1096,7 +1108,7 @@ console.log('Filtered instructors/admins:', filtered);
                 type="button"
                 onClick={() => { setIsModalOpen(false); resetForm(); }}
                 variant="outline"
-                className="w-full h-11 gap-2 rounded-xl border-2 border-gray-200 dark:border-gray-800 hover:border-error/30 hover:text-error transition-all duration-200"
+                className="w-full h-11 gap-2 rounded-xl border-2 border-slate-200 dark:border-gray-800 hover:border-error/30 hover:text-error transition-all duration-200 font-extrabold text-xs"
               >
                 <XCircle className="w-4 h-4" />
                 {isAr ? 'إلغاء' : 'Cancel'}
@@ -1104,7 +1116,30 @@ console.log('Filtered instructors/admins:', filtered);
             </div>
           </form>
         </Modal>
+
+        {/* ==================================================================== */}
+        {/* NOUVEAU : MODALE DE PREVISUALISATION VIDÉO SIGNÉE                    */}
+        {/* ==================================================================== */}
+        {previewVideoUrl && (
+          <Modal
+            isOpen={!!previewVideoUrl}
+            onClose={() => setPreviewVideoUrl('')}
+            className="max-w-2xl"
+            title={isAr ? 'معاينة الفيديو التعريفي' : 'Preview Intro Video'}
+          >
+            <div className="aspect-video w-full rounded-2xl bg-black overflow-hidden shadow-inner border border-slate-200/30 dark:border-gray-850/50">
+              <video
+                src={previewVideoUrl}
+                controls
+                autoPlay
+                controlsList="nodownload"
+                className="w-full h-full object-contain"
+              />
+            </div>
+          </Modal>
+        )}
+
       </div>
     </div>
   );
-}
+} 

@@ -3,31 +3,54 @@ import { db } from '@/lib/db';
 import { withAuth } from '@/lib/middleware/withAuth';
 import { withRole } from '@/lib/middleware/withRole';
 
+export const dynamic = 'force-dynamic';
+
+// Récupérer tous les cours associés à l'instructeur connecté (GET)
 async function getInstructorCoursesHandler(request) {
   try {
-    // Récupérer uniquement les cours assignés à ce professeur [5]
-    const courses = await db.course.findMany({
-      where: {
-        instructorId: request.user.userId
-      },
-      include: {
-        category: { select: { id: true, nameAr: true, nameEn: true } },
-        chapters: {
-          include: { lessons: true }
-        },
-        _count: {
-          select: { enrollments: true } // Nombre total d'étudiants inscrits [2]
+    const userId = request.user.userId;
+    const role = request.user.role;
+
+    let courses = [];
+
+    // Structure de requête incluant les relations requises par le Front-end
+    const includeQuery = {
+      category: true,
+      offers: true,
+      chapters: {
+        include: {
+          lessons: {
+            select: { id: true } // Sélection minimale pour compter les leçons
+          }
         }
       },
-      orderBy: { createdAt: 'desc' }
-    });
+      _count: {
+        select: { enrollments: true } // Compte des étudiants inscrits
+      }
+    };
+
+    if (role === 'ADMIN') {
+      // Les administrateurs voient l'intégralité des cours
+      courses = await db.course.findMany({
+        include: includeQuery,
+        orderBy: { createdAt: 'desc' }
+      });
+    } else {
+      // Les instructeurs voient uniquement leurs cours assignés
+      courses = await db.course.findMany({
+        where: {
+          instructorId: userId
+        },
+        include: includeQuery,
+        orderBy: { createdAt: 'desc' }
+      });
+    }
 
     return NextResponse.json({ success: true, courses });
   } catch (error) {
     console.error('Error fetching instructor courses:', error);
-    return NextResponse.json({ error: 'Erreur interne lors du chargement des cours.' }, { status: 500 });
+    return NextResponse.json({ error: 'Erreur lors de la récupération des cours.' }, { status: 500 });
   }
 }
 
-// Seuls les enseignants et les administrateurs peuvent accéder à cette API [5]
 export const GET = withAuth(withRole(['INSTRUCTOR', 'ADMIN'], getInstructorCoursesHandler));

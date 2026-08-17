@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 async function getCourseStudentsHandler(request, { params }) {
   try {
-    // FIX : Résoudre la promesse params pour Next.js 15+ [1]
+    // Résoudre la promesse params pour Next.js 15+
     const { courseId } = await params;
 
     // 1. Récupérer le cours pour vérifier les droits d'auteur
@@ -24,7 +24,7 @@ async function getCourseStudentsHandler(request, { params }) {
       return NextResponse.json({ error: 'Cours introuvable.' }, { status: 404 });
     }
 
-    // BARRIÈRE DE SÉCURITÉ : L'enseignant doit être le propriétaire attitré de ce cours [5]
+    // BARRIÈRE DE SÉCURITÉ : L'enseignant doit être le propriétaire de ce cours ou un administrateur
     if (request.user.role !== 'ADMIN' && course.instructorId !== request.user.userId) {
       return NextResponse.json({ error: 'Accès interdit.' }, { status: 403 });
     }
@@ -40,19 +40,18 @@ async function getCourseStudentsHandler(request, { params }) {
       },
       include: {
         user: {
-          // FIX CORRECTIF : Sélectionner uniquement les champs réels validés par Prisma
+          // CORRECTION : Sélection uniquement des champs existants dans le modèle User (audience retiré)
           select: {
             id: true,
             fullName: true,
-            email: true,
-            audience: true // Utilisation du champ réel de votre schéma
+            email: true
           }
         }
       },
       orderBy: { createdAt: 'desc' }
     });
 
-    // 3. Calculer la progression réelle de chaque étudiant [2]
+    // 3. Calculer la progression réelle de chaque étudiant
     const studentsWithProgress = await Promise.all(
       enrollments.map(async (e) => {
         let completedCount = 0;
@@ -88,6 +87,7 @@ async function getCourseStudentsHandler(request, { params }) {
       students: studentsWithProgress, 
       courseTitle: { ar: course.titleAr, en: course.titleEn } 
     });
+
   } catch (error) {
     console.error('Error fetching course students:', error);
     return NextResponse.json({ error: 'Erreur interne du serveur.' }, { status: 500 });

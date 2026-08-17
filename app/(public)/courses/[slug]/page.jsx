@@ -156,7 +156,12 @@ export default function CourseDetailsPage() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [activeTab, setActiveTab] = useState('syllabus');
 
-  // Sélection d'offre d'abonnement dynamique [2]
+  // États pour la vidéo d'introduction sécurisée par URL signée
+  const [playingIntro, setPlayingIntro] = useState(false);
+  const [introVideoSignedUrl, setIntroVideoSignedUrl] = useState(null);
+  const [fetchingIntroUrl, setFetchingIntroUrl] = useState(false);
+
+  // Sélection d'offre d'abonnement dynamique
   const [selectedOfferId, setSelectedOfferId] = useState(null);
 
   const isAr = language === 'ar';
@@ -172,7 +177,6 @@ export default function CourseDetailsPage() {
             const firstId = data.course.chapters?.[0]?.lessons?.[0]?.id;
             setFirstLessonId(firstId);
             
-            // Sélectionner par défaut la première offre disponible
             if (data.course.offers && data.course.offers.length > 0) {
               setSelectedOfferId(data.course.offers[0].id);
             }
@@ -208,7 +212,33 @@ export default function CourseDetailsPage() {
     }
   }, [user, course]);
 
-  // Gérer la soumission de la commande d'abonnement [2]
+  // Gérer la génération d'un lien signé temporaire pour l'intro vidéo [2]
+  const handlePlayIntro = async () => {
+    if (!course?.videoUrl) return;
+
+    setFetchingIntroUrl(true);
+    try {
+      // Appel à l'API publique pour récupérer l'URL de streaming signée (Get signed playback URL) [2]
+      const res = await fetch(`/api/public/courses/${course.id}/video-token`);
+      const data = await res.json();
+      
+      if (res.ok && data.playbackUrl) {
+        setIntroVideoSignedUrl(data.playbackUrl);
+        setPlayingIntro(true);
+      } else {
+        // Fallback transparent vers le lien de stockage brut si l'API est absente
+        setIntroVideoSignedUrl(course.videoUrl);
+        setPlayingIntro(true);
+      }
+    } catch (err) {
+      console.warn("Échec de la récupération du lien signé, utilisation du lien brut :", err);
+      setIntroVideoSignedUrl(course.videoUrl);
+      setPlayingIntro(true);
+    } finally {
+      setFetchingIntroUrl(false);
+    }
+  };
+
   const handleCheckoutRedirect = () => {
     if (!user) {
       router.push(`/login?redirect=/courses/${course.slug}`);
@@ -218,14 +248,12 @@ export default function CourseDetailsPage() {
     router.push(`/checkout?courseId=${course.id}&offerId=${selectedOfferId}`);
   };
 
-  // NOUVEAU : Récupérer un lien de téléchargement signé temporaire pour le document [2]
   const handleDownloadResource = async (lessonId) => {
     try {
       const res = await fetch(`/api/student/document-token/${lessonId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Accès verrouillé.');
       
-      // Ouvrir le document privé pré-signé en toute sécurité dans un nouvel onglet
       window.open(data.downloadUrl, '_blank');
     } catch (err) {
       alert(err.message);
@@ -261,7 +289,7 @@ export default function CourseDetailsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f8f9fb] dark:bg-gray-950">
+      <div className="min-h-screen flex items-center justify-center bg-[#f8f9fb] dark:bg-[#090b11]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{t('common.loading')}</span>
@@ -272,7 +300,7 @@ export default function CourseDetailsPage() {
 
   if (!course) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f8f9fb] dark:bg-gray-950 px-6">
+      <div className="min-h-screen flex items-center justify-center bg-[#f8f9fb] dark:bg-[#090b11] px-6">
         <div className="text-center space-y-6 max-w-md">
           <span className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white dark:bg-gray-900 text-gray-400 dark:text-gray-600 shadow-md">
             <IconSearchOff className="w-9 h-9" />
@@ -312,13 +340,12 @@ export default function CourseDetailsPage() {
   const selectedOffer = offers.find(o => o.id === selectedOfferId) || offers[0];
 
   return (
-    <div className={`min-h-screen bg-[#f8f9fb] dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300 pb-16 ${isAr ? 'font-cairo' : 'font-sans'}`}>
+    <div className={`min-h-screen bg-[#f8f9fb] dark:bg-[#090b11] text-gray-900 dark:text-gray-100 transition-colors duration-300 pb-16 ${isAr ? 'font-cairo' : 'font-sans'}`}>
       
-      {/* Container Principal "Academy" */}
       <div className="max-w-7xl mx-auto px-6 pt-10">
         
-        {/* Fil d'Ariane épuré */}
-        <nav className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-8 select-none">
+        {/* Fil d'Ariane */}
+        <nav className="flex items-center gap-2 text-xs font-bold text-gray-550 mb-8 select-none">
           <Link href="/" className="hover:text-primary transition-colors">{isAr ? 'الرئيسية' : 'Home'}</Link>
           <IconChevronRight className={`w-3.5 h-3.5 text-gray-400 ${isAr ? 'rotate-180' : ''}`} />
           <Link href="/courses" className="hover:text-primary transition-colors">{isAr ? 'المساقات' : 'Tracks'}</Link>
@@ -326,44 +353,41 @@ export default function CourseDetailsPage() {
           <span className="text-gray-900 dark:text-white font-black truncate max-w-[200px]">{categoryLabel}</span>
         </nav>
 
-        {/* Structure Deux Colonnes Compacte */}
+        {/* Structure Deux Colonnes */}
         <div className="grid lg:grid-cols-[1.65fr_1fr] gap-10 items-start">
           
-          {/* ================= COLONNE DE GAUCHE : INFOS & CONTENU DE L'ONGLET ================= */}
+          {/* ================= COLONNE DE GAUCHE ================= */}
           <div className="space-y-8">
             
             <div className="space-y-5">
-              {/* Badge Catégorie */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/10">
                 <IconGraduationCap className="w-4 h-4" />
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">{categoryLabel}</span>
               </div>
 
-              {/* Titre Principal */}
-              <h1 className="text-3xl sm:text-4xl lg:text-4.5xl font-black leading-tight text-gray-950 dark:text-white tracking-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-4.5xl font-black leading-tight text-gray-955 dark:text-white tracking-tight">
                 {title}
               </h1>
 
-              {/* Court extrait descriptif */}
               <p className="text-sm sm:text-base text-gray-600 dark:text-gray-350 leading-relaxed font-medium">
                 {description ? description.substring(0, 180) + '...' : ''}
               </p>
             </div>
 
-            {/* Grille de badges métadonnées 2x2 compacte */}
+            {/* Badges Métadonnées */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
               {[
-                { label: isAr ? 'فيديوهات مسجلة' : 'Online Videos', val: `${totalLessons} ${isAr ? 'درس' : 'Lessons'}`, icon: IconPlay },
+                { label: isAr ? 'فيديوهات شرح مسجلة' : 'Online Videos', val: `${totalLessons} ${isAr ? 'درس' : 'Lessons'}`, icon: IconPlay },
                 { label: isAr ? 'مدة الدراسة المقدرة' : 'Duration estimate', val: `${hoursEstimate} ${isAr ? 'ساعة' : 'Hours'}`, icon: IconClock },
                 { label: isAr ? 'مشاركين نشطين' : 'Active Community', val: `${nf.format(course._count?.enrollments || 0)} ${isAr ? 'طالب' : 'Learners'}`, icon: IconUsers },
                 { label: isAr ? 'التقييم العام' : 'Global Rating', val: `${displayRating} (${displayReviews} ${isAr ? 'مراجعة' : 'reviews'})`, icon: IconStar }
               ].map((item, idx) => (
-                <div key={idx} className="flex items-center gap-3.5 p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/60 dark:border-gray-800 shadow-sm">
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                <div key={idx} className="flex items-center gap-3.5 p-4 rounded-2xl bg-white dark:bg-gray-900 border border-slate-200/50 dark:border-gray-800/60 shadow-sm">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 animate-pulse">
                     <item.icon className="w-4.5 h-4.5" />
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold text-gray-455 dark:text-gray-500 uppercase tracking-wide">{item.label}</div>
+                    <div className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide">{item.label}</div>
                     <div className="text-xs font-extrabold text-gray-900 dark:text-white mt-0.5">{item.val}</div>
                   </div>
                 </div>
@@ -371,20 +395,20 @@ export default function CourseDetailsPage() {
             </div>
 
             {/* Instructeur Profil */}
-            <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200/60 dark:border-gray-800 shadow-sm max-w-sm">
+            <div className="flex items-center gap-3.5 p-4 rounded-2xl bg-white dark:bg-gray-900 border border-slate-200/50 dark:border-gray-800/60 shadow-sm max-w-sm">
               <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-primary to-indigo-500 flex items-center justify-center text-white font-bold shadow-md">
                 {course.instructor?.fullName?.charAt(0).toUpperCase() || <IconUser className="w-5 h-5" />}
               </div>
               <div>
-                <p className="text-[10px] font-bold text-gray-455 dark:text-gray-500 uppercase tracking-wider">{isAr ? 'المدرب المسؤول' : 'Instructor'}</p>
+                <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{isAr ? 'المدرب المسؤول' : 'Instructor'}</p>
                 <p className="text-sm font-black text-gray-955 dark:text-white mt-0.5">
                   {course.instructor?.fullName || (isAr ? 'مدرب معتمد' : 'Certified Instructor')}
                 </p>
               </div>
             </div>
 
-            {/* Navigation par Onglets Intégrée */}
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/60 dark:border-gray-800 p-2 flex gap-1 shadow-sm">
+            {/* Navigation par Onglets */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-slate-200/50 dark:border-gray-800/60 p-2 flex gap-1 shadow-sm">
               {[
                 { id: 'syllabus', label: isAr ? 'المنهج الدراسي' : 'Course Content' },
                 { id: 'comments', label: isAr ? 'التعليقات والمناقشات' : 'Comments' },
@@ -398,7 +422,7 @@ export default function CourseDetailsPage() {
                     className={`flex-1 py-3 px-4 rounded-xl font-bold text-xs transition-all duration-300 cursor-pointer ${
                       isActive
                         ? 'bg-primary text-white shadow-md'
-                        : 'text-gray-550 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-800'
+                        : 'text-gray-550 dark:text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-855 hover:text-gray-855'
                     }`}
                   >
                     {tab.label}
@@ -411,32 +435,31 @@ export default function CourseDetailsPage() {
             <div className="space-y-6">
               
               {activeTab === 'syllabus' && (
-                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/60 dark:border-gray-800 p-6 lg:p-8 shadow-sm space-y-6">
+                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/50 dark:border-gray-800/60 p-6 lg:p-8 shadow-sm space-y-6">
                   <div>
-                    <h2 className="text-lg font-black text-gray-955 dark:text-white">
+                    <h2 className="text-lg font-black text-gray-900 dark:text-white">
                       {isAr ? 'برنامج الدورة التدريبية' : 'Course Program'}
                     </h2>
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1.5 text-xs text-gray-500">
                       {totalChapters} {isAr ? 'فصل' : 'chapters'} · {totalLessons} {isAr ? 'درس في المنهج' : 'lessons'}
                     </p>
                   </div>
 
                   {chapters.length === 0 ? (
-                    <div className="text-center py-12 border-2 border-dashed border-gray-150 rounded-2xl">
-                      <p className="text-sm font-semibold text-gray-400">
+                    <div className="text-center py-12 border-2 border-dashed border-slate-200 dark:border-gray-800 rounded-2xl">
+                      <p className="text-sm font-semibold text-gray-455">
                         {isAr ? 'لم يتم رفع محتوى الدورة بعد.' : 'No course chapters uploaded yet.'}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {chapters.map((chapter, i) => {
-                        const isPreview = i === 0;
                         const lessonsCount = chapter.lessons?.length || 0;
                         return (
-                          <div key={chapter.id} className="border border-gray-150 dark:border-gray-800 rounded-2xl p-5 hover:shadow-md transition-shadow duration-300">
+                          <div key={chapter.id} className="border border-slate-150 dark:border-gray-800/80 rounded-2xl p-5 hover:shadow-md transition-shadow duration-300">
                             <div className="flex items-center justify-between gap-4 flex-wrap">
                               <div className="flex items-center gap-3.5">
-                                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isEnrolled ? 'bg-primary text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-850/60 text-gray-400'}`}>
+                                <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isEnrolled ? 'bg-primary text-white shadow-sm' : 'bg-slate-50 dark:bg-gray-850/60 text-gray-400'}`}>
                                   {isEnrolled ? <IconPlay className="w-4 h-4 fill-white" /> : <IconLock className="w-4 h-4" />}
                                 </span>
                                 <div>
@@ -448,14 +471,13 @@ export default function CourseDetailsPage() {
                                   </p>
                                 </div>
                               </div>
-                              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg ${isEnrolled ? 'bg-primary/10 text-primary' : 'bg-gray-100 dark:bg-gray-800 text-gray-550'}`}>
+                              <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg ${isEnrolled ? 'bg-primary/10 text-primary' : 'bg-slate-50 dark:bg-gray-800 text-gray-500'}`}>
                                 {isEnrolled ? (isAr ? 'مفتوح' : 'Open') : (isAr ? 'مقفل' : 'Locked')}
                               </span>
                             </div>
 
-                            {/* Système d'interaction dynamique bilingue lié strictement à l'abonnement élève [2] */}
                             {lessonsCount > 0 && (
-                              <ul className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-855 space-y-2.5 text-xs text-gray-555 list-none">
+                              <ul className="mt-4 pt-3 border-t border-slate-100 dark:border-gray-800/60 space-y-2.5 text-xs text-gray-500 list-none">
                                 {chapter.lessons.map((lesson, idx) => {
                                   if (isEnrolled) {
                                     return (
@@ -472,7 +494,6 @@ export default function CourseDetailsPage() {
                                             </span>
                                           </Link>
                                           
-                                          {/* DOCUMENT SECONDAIRE SÉCURISÉ : Téléchargement dynamique par token signé [2] */}
                                           {lesson.documentUrl && (
                                             <button
                                               onClick={(e) => {
@@ -502,7 +523,7 @@ export default function CourseDetailsPage() {
                                               }, 1500);
                                             }
                                           }}
-                                          className="w-full flex items-center gap-2.5 py-2 px-3 rounded-xl transition-all duration-300 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-850/40 text-start cursor-pointer group font-medium"
+                                          className="w-full flex items-center gap-2.5 py-2 px-3 rounded-xl transition-all duration-300 text-gray-400 hover:bg-slate-50 dark:hover:bg-gray-855/40 text-start cursor-pointer group font-medium"
                                         >
                                           <span className="opacity-60">🔒</span>
                                           <span>{idx + 1}. {isAr ? lesson.titleAr : lesson.titleEn}</span>
@@ -525,7 +546,7 @@ export default function CourseDetailsPage() {
               )}
 
               {activeTab === 'comments' && (
-                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/60 dark:border-gray-800 p-6 lg:p-8 shadow-sm space-y-6">
+                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/50 dark:border-gray-800/60 p-6 lg:p-8 shadow-sm space-y-6">
                   <h2 className="text-lg font-black text-gray-900 dark:text-white flex items-center gap-2">
                     <IconMessageCircle className="w-5 h-5 text-violet-500" />
                     {isAr ? 'الأسئلة والتعليقات' : 'Questions & Discussion'}
@@ -538,10 +559,10 @@ export default function CourseDetailsPage() {
                       placeholder={isAr ? 'اكتب سؤالك أو استفسارك هنا...' : 'Post a comment or ask a question...'}
                       required
                       rows={3}
-                      className="w-full p-4 text-xs border border-gray-200 dark:border-gray-800 rounded-2xl bg-gray-50/50 dark:bg-gray-955 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/50 text-gray-800"
+                      className="w-full p-4 text-xs border border-slate-200 dark:border-gray-850 rounded-2xl bg-slate-50/50 dark:bg-gray-955 outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary/50 text-gray-800"
                     />
                     <div className="flex justify-end">
-                      <Button type="submit" disabled={submittingComment} className="bg-primary hover:bg-primary/95 text-white font-bold px-6 py-3 rounded-2xl shadow-md">
+                      <Button type="submit" disabled={submittingComment} className="bg-primary hover:bg-primary/95 text-white font-bold px-6 py-3 rounded-2xl shadow-md border-0">
                         {submittingComment ? t('common.loading') : (isAr ? 'نشر التعليق' : 'Publish Comment')}
                       </Button>
                     </div>
@@ -549,10 +570,10 @@ export default function CourseDetailsPage() {
 
                   <div className="space-y-5 pt-4">
                     {comments.length === 0 ? (
-                      <p className="text-xs text-gray-455 text-center py-6">{isAr ? 'لا توجد تعليقات بعد.' : 'No comments posted yet.'}</p>
+                      <p className="text-xs text-gray-400 text-center py-6">{isAr ? 'لا توجد تعليقات بعد.' : 'No comments posted yet.'}</p>
                     ) : (
                       comments.map((comment) => (
-                        <div key={comment.id} className="flex gap-4 p-4 rounded-2xl bg-[#f8f9fb] dark:bg-gray-950/20 border border-gray-150/40">
+                        <div key={comment.id} className="flex gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-gray-955/20 border border-slate-100 dark:border-gray-850">
                           <div className="w-9 h-9 rounded-xl bg-violet-500 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
                             {comment.user?.fullName?.charAt(0).toUpperCase() || 'U'}
                           </div>
@@ -571,7 +592,7 @@ export default function CourseDetailsPage() {
               )}
 
               {activeTab === 'about' && (
-                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/60 dark:border-gray-800 p-6 lg:p-8 shadow-sm space-y-4">
+                <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/50 dark:border-gray-800/60 p-6 lg:p-8 shadow-sm space-y-4">
                   <h2 className="text-lg font-black text-gray-955 dark:text-white">
                     {isAr ? 'تفاصيل ومعلومات الدورة' : 'About This Program'}
                   </h2>
@@ -585,45 +606,65 @@ export default function CourseDetailsPage() {
 
           </div>
 
-          {/* ================= COLONNE DE DROITE : ABONNEMENT COMPACT ET DESIGN D'OFFRES AVANCÉ ================= */}
+          {/* ================= COLONNE DE DROITE ================= */}
           <div className="lg:sticky lg:top-24 space-y-6">
             
-            <aside id="checkout-aside" className="rounded-3xl border border-gray-200/60 dark:border-gray-800 bg-white dark:bg-gray-900 p-6 shadow-xl shadow-slate-200/50 dark:shadow-none space-y-6 transition-all duration-500">
+            <aside id="checkout-aside" className="rounded-3xl border border-slate-200/50 dark:border-gray-800/60 bg-white dark:bg-gray-900 p-6 shadow-xl space-y-6 transition-all duration-500">
               
-              {/* Box d'Aperçu Vidéo Stylisé */}
-              <div className="relative aspect-video rounded-2xl bg-gradient-to-br from-primary to-indigo-900 flex flex-col items-center justify-center text-white overflow-hidden group shadow-inner">
-                <div className="absolute inset-0 bg-black/10 mix-blend-overlay" />
-                <div className="absolute inset-0 opacity-15" style={{
-                  backgroundImage: 'radial-gradient(circle, white 10%, transparent 11%)',
-                  backgroundSize: '12px 12px'
-                }} />
-                
-                <button className="relative z-10 w-14 h-14 rounded-full bg-white text-primary flex items-center justify-center shadow-2xl transition-all duration-300 group-hover:scale-110 active:scale-95 cursor-pointer">
-                  <IconPlay className="w-5 h-5 fill-primary ml-1" />
-                </button>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/80 mt-3 relative z-10">
-                  {isAr ? 'عرض مقدمة الدورة' : 'Watch Preview'}
-                </span>
+              {/* Box d'Aperçu Vidéo avec intégration dynamique d'URL signée [2] */}
+              <div className="relative aspect-video rounded-2xl bg-gradient-to-br from-primary to-indigo-900 flex flex-col items-center justify-center text-white overflow-hidden group shadow-inner border border-slate-200/30 dark:border-gray-800/50">
+                {playingIntro && introVideoSignedUrl ? (
+                  <video
+                    src={introVideoSignedUrl}
+                    controls
+                    autoPlay
+                    controlsList="nodownload"
+                    className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  />
+                ) : (
+                  <div 
+                    onClick={handlePlayIntro}
+                    className="absolute inset-0 w-full h-full flex flex-col items-center justify-center cursor-pointer"
+                  >
+                    <div className="absolute inset-0 bg-black/15 mix-blend-overlay" />
+                    <div className="absolute inset-0 opacity-15" style={{
+                      backgroundImage: 'radial-gradient(circle, white 10%, transparent 11%)',
+                      backgroundSize: '12px 12px'
+                    }} />
+                    
+                    <button className="relative z-10 w-14 h-14 rounded-full bg-white text-primary flex items-center justify-center shadow-2xl transition-all duration-300 group-hover:scale-110 active:scale-95">
+                      {fetchingIntroUrl ? (
+                        <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <IconPlay className="w-5 h-5 fill-primary ml-1" />
+                      )}
+                    </button>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/85 mt-3 relative z-10">
+                      {fetchingIntroUrl 
+                        ? (isAr ? 'جاري التحميل...' : 'Loading...') 
+                        : (isAr ? 'عرض مقدمة الدورة' : 'Watch Preview')}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* SECTION DES ABONNÉS - RENDU DES OFFRES RÉELLES ET BOUTON D'ABONNEMENT [2] */}
+              {/* Rendu des offres réelles */}
               {isEnrolled ? (
-                // S'il est inscrit et approuvé, on remplace par un accès direct vert premium [2]
                 <div className="space-y-4">
                   <div className="flex items-center gap-2.5 text-emerald-600 bg-emerald-500/10 rounded-2xl p-4 border border-emerald-500/15">
-                    <IconCheckCircle className="w-5 h-5 shrink-0" />
+                    <IconCheckCircle className="w-5 h-5 shrink-0 animate-bounce" />
                     <div>
                       <p className="text-xs font-black leading-tight">
                         {isAr ? 'الاشتراك مفعّل ونشط' : 'Subscription is Active'}
                       </p>
-                      <p className="text-[10px] text-gray-500 mt-1">
+                      <p className="text-[10px] text-gray-550 mt-1">
                         {isAr ? 'لديك حق الوصول الكامل للمنهج' : 'You have full verified curriculum access'}
                       </p>
                     </div>
                   </div>
                   {firstLessonId ? (
                     <Link href={`/courses/${course.slug}/watch/${firstLessonId}`} className="block">
-                      <Button className="w-full font-black py-4 rounded-2xl bg-primary hover:bg-primary/95 text-white shadow-lg shadow-primary/25 transition-all duration-300 hover:-translate-y-1 cursor-pointer">
+                      <Button className="w-full font-black py-4 rounded-2xl bg-primary hover:bg-primary/95 text-white shadow-lg shadow-primary/25 transition-all duration-300 hover:-translate-y-1 cursor-pointer border-0">
                         📖 {isAr ? 'ابدأ التعلم الآن' : 'Start Learning Now'}
                       </Button>
                     </Link>
@@ -634,19 +675,18 @@ export default function CourseDetailsPage() {
                   )}
                 </div>
               ) : (
-                // S'il n'est pas encore inscrit, on affiche la liste des offres réelles et le bouton s'abonner [2]
                 <div className="space-y-5">
                   <div className="space-y-1">
                     <h4 className="text-xs font-black text-gray-400 uppercase tracking-wider">
                       {isAr ? 'اختر عرض الاشتراك المناسب' : 'Choose Your Subscription'}
                     </h4>
-                    <p className="text-[10px] text-gray-500">
+                    <p className="text-[10px] text-gray-550">
                       {isAr ? 'وفر أكثر مع اشتراكات الفترات الطويلة' : 'Save more with long-term billing plans'}
                     </p>
                   </div>
 
                   {offers.length === 0 ? (
-                    <div className="text-center py-6 border border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
+                    <div className="text-center py-6 border border-dashed border-slate-200 dark:border-gray-800 rounded-2xl">
                       <p className="text-xs font-bold text-gray-400">
                         {isAr ? 'لا تتوفر اشتراكات لهذا الكورس حالياً' : 'No dynamic offers currently configured'}
                       </p>
@@ -667,11 +707,10 @@ export default function CourseDetailsPage() {
                             className={`group relative p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 flex items-center justify-between select-none ${
                               isSelected
                                 ? 'border-primary bg-primary/[0.02] shadow-md shadow-primary/5 ring-4 ring-primary/5'
-                                : 'border-gray-200/80 dark:border-gray-800 hover:border-primary/40 bg-white dark:bg-gray-900/40 hover:-translate-y-0.5'
+                                : 'border-slate-200/80 dark:border-gray-800 hover:border-primary/40 bg-white dark:bg-gray-900/40 hover:-translate-y-0.5'
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              {/* Rond de sélection */}
                               <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
                                 isSelected ? 'border-primary bg-primary' : 'border-gray-300 dark:border-gray-700'
                               }`}>
@@ -688,7 +727,6 @@ export default function CourseDetailsPage() {
                               </div>
                             </div>
 
-                            {/* Tarifs de l'offre */}
                             <div className="text-right flex flex-col items-end shrink-0">
                               <span className="text-sm font-black text-gray-900 dark:text-white">
                                 {nf.format(offer.price)} {isAr ? 'دج' : 'DZD'}
@@ -710,12 +748,11 @@ export default function CourseDetailsPage() {
                     </div>
                   )}
 
-                  {/* BOUTON S'ABONNER DYNAMIQUE [2] */}
                   {selectedOffer && (
                     <div className="pt-2">
                       <Button
                         onClick={handleCheckoutRedirect}
-                        className="w-full font-black py-4 rounded-2xl bg-primary hover:bg-primary/95 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 active:translate-y-0 active:shadow-md cursor-pointer text-xs"
+                        className="w-full font-black py-4 rounded-2xl bg-primary hover:bg-primary/95 text-white shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 cursor-pointer border-0 text-xs"
                       >
                         🚀 {isAr ? 'اشترك في العرض الآن' : 'Subscribe to Selected Offer'}
                       </Button>
@@ -725,7 +762,7 @@ export default function CourseDetailsPage() {
               )}
 
               {/* Spécifications Bullet Points */}
-              <div className="pt-5 border-t border-gray-150 dark:border-gray-800/80 space-y-3.5 text-xs text-gray-550 dark:text-gray-400">
+              <div className="pt-5 border-t border-slate-100 dark:border-gray-800/80 space-y-3.5 text-xs text-gray-500">
                 <div className="flex items-center gap-3">
                   <IconPlay className="w-4 h-4 text-primary shrink-0" />
                   <span className="font-semibold">{isAr ? 'فيديوهات شرح عالية الدقة' : 'High-definition online videos'}</span>
@@ -746,10 +783,10 @@ export default function CourseDetailsPage() {
 
             </aside>
 
-            {/* Objectifs atteints (Cartouche secondaire de droite) */}
-            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200/60 dark:border-gray-800 p-6 shadow-sm space-y-4">
-              <h3 className="font-black text-gray-950 dark:text-white text-sm flex items-center gap-2">
-                <span className="w-1.5 h-4 bg-primary rounded-full" />
+            {/* Objectifs atteints */}
+            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-slate-200/50 dark:border-gray-800/60 p-6 shadow-sm space-y-4">
+              <h3 className="font-black text-gray-955 dark:text-white text-sm flex items-center gap-2">
+                <span className="w-1.5 h-4 bg-primary rounded-full animate-bounce" />
                 {isAr ? 'ما ستحققه في نهاية الدورة' : "What you'll achieve"}
               </h3>
               <ul className="space-y-3 text-xs text-gray-655 dark:text-gray-400">
